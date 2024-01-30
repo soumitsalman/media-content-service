@@ -1,0 +1,10 @@
+__azurite_db_blob__.json
+__azurite_db_blob_extent__.json
+__azurite_db_queue__.json
+__azurite_db_queue_extent__.json
+__azurite_db_table__.json
+.env
+Seed Data for Cafecito - user_ids.csv
+Seed Data for Cafecito - user_interests.csv
+__blobstorage__/
+__queuestorage__/
