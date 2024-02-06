@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"log"
 	"os"
@@ -13,23 +14,32 @@ const REDDIT = "REDDIT"
 
 func _loadSeedFile() {
 	contents := readJson[[]ds.MediaContentItem]("/home/soumitsr/Codes/goreddit/contents.json")
-	ds.NewContents(contents[16:27])
+	ds.NewMediaContents_Mongo(contents[0:6])
 
-	loaded_e := readJson[[]map[string]any]("/home/soumitsr/Codes/goreddit/engagements.json")
-	// preprocessing for now. in future this should be a different format given from the collector
-	engagements := make([]ds.UserEngagementItem, 0, 30)
-	for _, e := range loaded_e {
-		for id, action := range e["engagements"].(map[string]any) {
-			engagements = append(engagements, ds.UserEngagementItem{
-				Username:  e["username"].(string),
-				Source:    REDDIT,
-				ContentId: id,
-				Action:    action.(string),
-			})
-		}
+	engagements := readJson[[]ds.UserEngagementItem]("/home/soumitsr/Codes/goreddit/engagements.json")
+	ds.NewEnagements_Mongo(engagements)
+
+	// raw_interests := readCsv("/home/soumitsr/Codes/media-content-service/Seed Data for Cafecito - user_interests.csv")
+	// var user_interests = ds.Extract[[]string, ds.UserInterestItem](
+	// 	raw_interests,
+	// 	func(item *[]string) ds.UserInterestItem {
+	// 		return ds.UserInterestItem{
+	// 			UserId:   (*item)[0],
+	// 			Category: (*item)[1],
+	// 		}
+	// 	},
+	// )
+	// ds.NewInterests_Mongo(user_interests)
+}
+
+func _tryEmbeddings() {
+	contents := readJson[[]ds.MediaContentItem]("/home/soumitsr/Codes/goreddit/contents.json")
+
+	for _, cnt := range contents[0:5] {
+		res := ds.CreateEmbeddingsForOne(cnt.Text)
+		log.Println(len(res), res[0], res[len(res)-1])
 	}
-	log.Println(len(engagements))
-	ds.NewEnagements(engagements)
+
 }
 
 func readJson[T any](path string) T {
@@ -39,8 +49,18 @@ func readJson[T any](path string) T {
 	return contents
 }
 
+func readCsv(path string) [][]string {
+	file, _ := os.Open(path)
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	items, _ := reader.ReadAll()
+	return items
+}
+
 func main() {
 	_loadSeedFile()
+	// _tryEmbeddings()
 }
 
 // creds, err := azidentity.NewDefaultAzureCredential(nil)

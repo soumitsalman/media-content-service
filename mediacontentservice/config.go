@@ -1,49 +1,20 @@
 package mediacontentservice
 
-import (
-	"log"
-	"os"
-
-	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
-)
-
-var media_store_client *aztables.ServiceClient
-var table_clients map[string]*aztables.Client = make(map[string]*aztables.Client)
+import "os"
 
 const (
-	MEDIASTORE_CONNECTION_STRING = "MEDIASTORE_CONNECTION_STRING"
-	MEDIASTORE_CONTENTS_TABLE    = "MEDIASTORE_CONTENTS_TABLE"
-	USER_ENGAGEMENTS_TABLE       = "USER_ENGAGEMENTS_TABLE"
-	USER_IDS_TABLE               = "USER_IDS_TABLE"
-	USER_INTERESTS_TABLE         = "USER_INTERESTS_TABLE"
+	DB_CONNECTION_STRING = "DB_CONNECTION_STRING"
+	DB_NAME              = "mediapulserepo"
+	MEDIA_CONTENTS       = "mediacontents"
+	USER_ENGAGEMENTS     = "userengagements"
+	USER_IDS             = "userids"
+	USER_INTERESTS       = "userinterests"
+	INTEREST_CATEGORIES  = "categories"
 )
 
-func getMediaStoreClient() *aztables.ServiceClient {
-	if media_store_client == nil {
-		media_store_client, _ = aztables.NewServiceClientFromConnectionString(os.Getenv(MEDIASTORE_CONNECTION_STRING), nil)
-	}
-	return media_store_client
+func getDBConnectionString() string {
+	return os.Getenv(DB_CONNECTION_STRING)
 }
-
-func getTable(table string) *aztables.Client {
-	table_name := os.Getenv(table)
-	// return the instance if it already exists
-	if table_client, ok := table_clients[table_name]; ok {
-		return table_client
-	}
-	// or else create an instance and return it
-	if table_client := getMediaStoreClient().NewClient(table_name); table_client != nil {
-		table_clients[table_name] = table_client
-		return table_client
-	}
-	// return nil
-	log.Println("Couldn't find the table:", table_name)
-	return nil
-}
-
-// func getMediaContentsTableName() string {
-// 	return os.Getenv("MEDIASTORE_CONTENTS_TABLE")
-// }
 
 // func getMediaContentsTable() *aztables.Client {
 // 	media_contents_once.Do(func() {
