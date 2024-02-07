@@ -14,10 +14,10 @@ const REDDIT = "REDDIT"
 
 func _loadSeedFile() {
 	contents := readJson[[]ds.MediaContentItem]("/home/soumitsr/Codes/goreddit/contents.json")
-	ds.NewMediaContents_Mongo(contents[0:6])
+	ds.NewMediaContents_Mongo(contents[0:5])
 
-	engagements := readJson[[]ds.UserEngagementItem]("/home/soumitsr/Codes/goreddit/engagements.json")
-	ds.NewEnagements_Mongo(engagements)
+	// engagements := readJson[[]ds.UserEngagementItem]("/home/soumitsr/Codes/goreddit/engagements.json")
+	// ds.NewEnagements_Mongo(engagements)
 
 	// raw_interests := readCsv("/home/soumitsr/Codes/media-content-service/Seed Data for Cafecito - user_interests.csv")
 	// var user_interests = ds.Extract[[]string, ds.UserInterestItem](
@@ -30,6 +30,7 @@ func _loadSeedFile() {
 	// 	},
 	// )
 	// ds.NewInterests_Mongo(user_interests)
+
 }
 
 func _tryEmbeddings() {
@@ -62,6 +63,65 @@ func main() {
 	_loadSeedFile()
 	// _tryEmbeddings()
 }
+
+// cats := []string{
+// 	"Life",
+// 	"Life Lessons",
+// 	"Politics",
+// 	"Travel",
+// 	"Poetry",
+// 	"Entrepreneurship",
+// 	"Education",
+// 	"Health",
+// 	"Love",
+// 	"Design",
+// 	"Writing",
+// 	"Technology",
+// 	"Self Improvement",
+// 	"Business",
+// 	"Music",
+// 	"Social Media",
+// 	"Sports",
+// 	"Food",
+// 	"Art",
+// 	"Python",
+// 	"JavaScript",
+// 	"Java",
+// 	"C#",
+// 	"C++",
+// 	"C",
+// 	"Ruby",
+// 	"PHP",
+// 	"Swift",
+// 	"Kotlin",
+// 	"Go",
+// 	"Rust",
+// 	"TypeScript",
+// 	"Scala",
+// 	"Perl",
+// 	"R",
+// 	"Dart",
+// 	"Model Architecture",
+// 	"Natural Language Processing",
+// 	"Machine Learning Algorithms",
+// 	"Ethical Implications of AI",
+// 	"AI in Healthcare",
+// 	"AI in Education",
+// 	"AI and Creativity",
+// 	"AI Policy and Regulation",
+// 	"Data Privacy in AI",
+// 	"Future of Work with AI",
+// 	"OpenAI's GPT",
+// 	"Anyscale",
+// 	"OctoAI",
+// 	"Open Source LLM",
+// 	"Open Source Software",
+// 	"AI and Robotics",
+// 	"Bias and Fairness in AI",
+// 	"AI in Financial Services",
+// 	"Environmental Impact of AI",
+// }
+// ds.NewCategories_Mongo(cats)
 
 // creds, err := azidentity.NewDefaultAzureCredential(nil)
 

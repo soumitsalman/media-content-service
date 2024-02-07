@@ -42,7 +42,8 @@ func NewMediaContents_Mongo(contents []MediaContentItem) {
 	})
 	new_contents = ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
 		item.Embeddings = CreateEmbeddingsForOne(item.Digest)
-		// TODO: get classification
+		item.Category = createMediaContentCategory(item.Embeddings)
+		log.Println(item.Kind, item.ChannelName, item.Title, item.Category)
 	})
 	insertMany[MediaContentItem](MEDIA_CONTENTS, new_contents)
 }
@@ -68,20 +69,29 @@ func NewInterests_Mongo(interests []UserInterestItem) {
 	// find existing embeddings so that there is no need to do multiple embedding calls since thats more expensive
 	cat_names := Extract[UserInterestItem, string](interests, func(item *UserInterestItem) string { return item.Category })
 	log.Println(len(cat_names), "interests being processed")
+	categories := NewCategories_Mongo(cat_names)
+
+	// for all items all have embeddings - just put them in user interest table
+	interests = ForEach[UserInterestItem](interests, func(item *UserInterestItem) {
+		cat_i := IndexAny[CategoryItem](categories, func(cat *CategoryItem) bool { return cat.Category == item.Category })
+		item.Embeddings = categories[cat_i].Embeddings
+		item.Timestamp = float64(time.Now().UnixNano()) / float64(time.Second)
+	})
+	insertMany[UserInterestItem](USER_INTERESTS, interests)
+}
+
+func NewCategories_Mongo(cat_names []string) []CategoryItem {
 	existing_cats := findItems[CategoryItem](
 		INTEREST_CATEGORIES,
 		&bson.M{"_id": bson.M{"$in": cat_names}},
 		nil)
 	log.Println(len(existing_cats), "categories found")
 
-	// filter the cat_names that are not in existings_cats
-	// create embeddings for them
-	// create new_categories
-	// push them to DB
-	// merge them with existing_cats so that we can update the interests embeddings for committing them in DB
-	new_cat_names := Filter[string](cat_names, func(item string) bool {
-		return !Any[CategoryItem](existing_cats, func(cat *CategoryItem) bool { return cat.Category == item })
-	})
+	new_cat_names := Filter[string](
+		cat_names,
+		func(item string) bool {
+			return !Any[CategoryItem](existing_cats, func(cat *CategoryItem) bool { return cat.Category == item })
+		})
 	log.Println(len(new_cat_names), "new categories need embeddings")
 
 	if new_embeddings := CreateEmbeddingsForMany(new_cat_names); new_embeddings != nil {
@@ -95,14 +105,31 @@ func NewInterests_Mongo(interests []UserInterestItem) {
 		insertMany[CategoryItem](INTEREST_CATEGORIES, new_cats)
 		existing_cats = append(existing_cats, new_cats...)
 	}
+	return existing_cats
+}
 
-	// for all items all have embeddings - just put them in user interest table
-	interests = ForEach[UserInterestItem](interests, func(item *UserInterestItem) {
-		cat_i := IndexAny[CategoryItem](existing_cats, func(cat *CategoryItem) bool { return cat.Category == item.Category })
-		item.Embeddings = existing_cats[cat_i].Embeddings
-		item.Timestamp = float64(time.Now().UnixNano()) / float64(time.Second)
-	})
-	insertMany[UserInterestItem](USER_INTERESTS, interests)
+func createMediaContentCategory(media_content_embeddings []float32) string {
+	search_comm := mongo.Pipeline{
+		{{"$search", bson.D{
+			{"cosmosSearch", bson.D{
+				{"vector", media_content_embeddings},
+				{"path", "embeddings"},
+				{"k", 1}, // return the top item
+			}},
+		}}},
+		{{"$project", bson.D{
+			// {"similarityScore", bson.M{"$meta": "searchScore"}},
+			{"_id", "$$ROOT._id"},
+		}}},
+	}
+	if cursor, err := getMongoCollection(INTEREST_CATEGORIES).Aggregate(ctx.Background(), search_comm); err != nil {
+		return ""
+	} else {
+		defer cursor.Close(ctx.Background())
+		var items []CategoryItem
+		cursor.All(ctx.Background(), &items)
+		return items[0].Category
+	}
 }
 
 // mongo db specific operations
@@ -175,10 +202,18 @@ func getMongoClient() *mongo.Client {
 	return mongo_client
 }
 
-func getMongoCollection(name string) *mongo.Collection {
+func getMongoDatabase() *mongo.Database {
 	var client = getMongoClient()
 	if client == nil {
 		return nil
 	}
-	return client.Database(DB_NAME).Collection(name)
+	return client.Database(DB_NAME)
+}
+
+func getMongoCollection(name string) *mongo.Collection {
+	var db = getMongoDatabase()
+	if db == nil {
+		return nil
+	}
+	return db.Collection(name)
 }
