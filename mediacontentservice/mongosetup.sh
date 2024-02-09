@@ -1,4 +1,5 @@
 use mediapulserepo
+show collections
 
 db.categories.countDocuments({})
 
@@ -38,3 +39,21 @@ db.runCommand({
   ]
 })
 
+db.mediacontents.createIndex(
+{
+  name: 'mediacontent_search',
+  key: 
+  {
+    "embeddings": "cosmosSearch",
+    "created": 1,    
+    "subscribers": 1,
+    "comments": 1,
+  },
+  cosmosSearchOptions: 
+  {
+    kind: 'vector-ivf',
+    numLists: 1,
+    similarity: 'COS',
+    dimensions: 1536
+  }
+})

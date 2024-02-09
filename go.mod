@@ -14,7 +14,9 @@ require (
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/montanaflynn/stats v0.7.0 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/otiai10/openaigo v1.6.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/tiktoken-go/tokenizer v0.1.0 // indirect

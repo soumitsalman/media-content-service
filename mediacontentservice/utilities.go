@@ -1,5 +1,7 @@
 package mediacontentservice
 
+import "time"
+
 // data utilities
 func Filter[T any](items []T, condition func(item T) bool) []T {
 	var new_items = make([]T, 0, len(items))
@@ -83,4 +85,9 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func DateToString(time_val float64) string {
+	timeValue := time.Unix(int64(time_val), 0)
+	return timeValue.Format("2006-01-02")
 }

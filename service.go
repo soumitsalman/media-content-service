@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/olekukonko/tablewriter"
 	ds "github.com/soumitsr/media-content-service/mediacontentservice"
 	// "github.com/otiai10/openaigo"
 )
@@ -13,8 +14,16 @@ import (
 const REDDIT = "REDDIT"
 
 func _loadSeedFile() {
-	contents := readJson[[]ds.MediaContentItem]("/home/soumitsr/Codes/goreddit/contents.json")
-	ds.NewMediaContents_Mongo(contents[0:5])
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetBorder(true)
+	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(true)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+
+	// contents := readJson[[]ds.MediaContentItem]("/home/soumitsr/Codes/goreddit/contents.json")
+	// ds.NewMediaContents_Mongo(contents[0:100])
 
 	// engagements := readJson[[]ds.UserEngagementItem]("/home/soumitsr/Codes/goreddit/engagements.json")
 	// ds.NewEnagements_Mongo(engagements)
@@ -24,12 +33,25 @@ func _loadSeedFile() {
 	// 	raw_interests,
 	// 	func(item *[]string) ds.UserInterestItem {
 	// 		return ds.UserInterestItem{
-	// 			UserId:   (*item)[0],
-	// 			Category: (*item)[1],
+	// 			GlobalUID: (*item)[0],
+	// 			Category:  (*item)[1],
 	// 		}
 	// 	},
 	// )
-	// ds.NewInterests_Mongo(user_interests)
+	// ds.NewInterests_Mongo(user_interests[1:])
+
+	// table.SetHeader([]string{"Kind", "Channel", "Tags", "Created", "Subscribers", "Comments", "Likes"})
+	// ds.ForEach[ds.MediaContentItem](ds.GetUserContents("danny_002"), func(item *ds.MediaContentItem) {
+	// 	// log.Printf("\n%s: [%s] %s\n%v\n%d | %d | %d\n", item.Kind, item.ChannelName, "", item.Tags, item.Subscribers, item.Comments, item.ThumbsupCount)
+	// 	table.Append([]string{item.Kind, item.ChannelName, strings.Join(item.Tags, ", "), ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)})
+	// })
+	// table.Render()
+
+	table.SetHeader([]string{"UID", "Source", "Username", "PW"})
+	ds.ForEach[ds.UserCredentialItem](ds.GetAllUserCredentials("SLACK"), func(item *ds.UserCredentialItem) {
+		table.Append([]string{item.UID, item.Source, item.Username, item.Password})
+	})
+	table.Render()
 
 }
 

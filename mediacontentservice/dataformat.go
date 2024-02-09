@@ -12,17 +12,11 @@ const (
 	COMMENT = "comment"
 )
 
-type DataItem interface {
-	GetGlobalId() string
-}
-
 type MediaContentItem struct {
 	// unique identifier across media source. every reddit item has one. In reddit this is the name
 	// in azure cosmos DB every record/item has to have an id.
 	// In case of media content the media content itself comes with an unique identifier that we can use
 	aztables.Entity
-
-	GlobalId string `json:"_id,omitempty" bson:"_id, omitempty"`
 	// which social media source is this coming from
 	Source string `json:"source,omitempty" bson:"source,omitempty"`
 	// unique id across Source
@@ -49,6 +43,8 @@ type MediaContentItem struct {
 	//subreddit category
 	Category string `json:"category,omitempty" bson:"category,omitempty"`
 
+	Tags []string `json:"tags,omitempty" bson:"tags,omitempty"`
+
 	// author of posts or comments. Empty for subreddits
 	Author string `json:"author,omitempty" bson:"author,omitempty"`
 	// date of creation of the post or comment. Empty for subreddits
@@ -74,32 +70,22 @@ func (item *MediaContentItem) CreateKeys() (string, string) {
 	return item.Entity.PartitionKey, item.Entity.RowKey
 }
 
-func (item *MediaContentItem) CreateGlobalId() string {
-	item.GlobalId = fmt.Sprintf("%s@%s", item.Id, item.Source)
-	return item.GlobalId
+func compareMediaContents(a, b *MediaContentItem) bool {
+	return (a.Source == b.Source) && (a.Id == b.Id)
 }
 
-func (item MediaContentItem) GetGlobalId() string {
-	return item.GlobalId
-}
-
-func compareMediaContentItems(a, b *MediaContentItem) bool {
-	if a.GlobalId == "" {
-		a.CreateGlobalId()
-	}
-	if b.GlobalId == "" {
-		a.CreateGlobalId()
-	}
-	return a.GlobalId == b.GlobalId
+type CategoryItem struct {
+	Category   string    `json:"_id,omitempty" bson:"_id,omitempty"`
+	Embeddings []float32 `json:"embeddings,omitempty" bson:"embeddings,omitempty"`
 }
 
 type UserEngagementItem struct {
 	aztables.Entity
-	GlobalId  string `json:"_id,omitempty" bson:"_id, omitempty"`
-	Username  string `json:"username,omitempty"`
-	Source    string `json:"source,omitempty"`
-	ContentId string `json:"cid,omitempty"`
-	Action    string `json:"action,omitempty"`
+	UID       string `json:"uid,omitempty" bson:"uid,omitempty"`
+	Username  string `json:"username,omitempty" bson:"username,omitempty"`
+	Source    string `json:"source,omitempty" bson:"source,omitempty"`
+	ContentId string `json:"cid,omitempty" bson:"cid,omitempty"`
+	Action    string `json:"action,omitempty" bson:"action,omitempty"`
 }
 
 func (item *UserEngagementItem) CreateKeys() (string, string) {
@@ -107,36 +93,26 @@ func (item *UserEngagementItem) CreateKeys() (string, string) {
 	return item.Entity.PartitionKey, item.Entity.RowKey
 }
 
-func (item *UserEngagementItem) CreateGlobalId() string {
-	item.GlobalId = fmt.Sprintf("%s->%s@%s:%s", item.Username, item.ContentId, item.Source, item.Action)
-	return item.GlobalId
+func compareUserEngagements(a, b *UserEngagementItem) bool {
+	return (a.Username == b.Username) &&
+		(a.Source == b.Source) &&
+		(a.ContentId == b.ContentId) &&
+		(a.Action == b.Action)
 }
-
-func (item UserEngagementItem) GetGlobalId() string {
-	return item.GlobalId
-}
-
-// type UserActionData struct {
-// 	// in cosmos DB every item has to have an id. Here the id will be synthetic
-// 	// other than azure cosmos DB literally no one cares about this field
-// 	RecordId      string `json:"id"`
-// 	ContentId     string `json:"content_id"`
-// 	Source        string `json:"source"`
-// 	UserId        string `json:"user_id"`
-// 	Processed     bool   `json:"processed,omitempty"`
-// 	Action        string `json:"action,omitempty"`
-// 	ActionContent string `json:"content,omitempty"`
-// }
 
 type UserInterestItem struct {
-	UserId     string    `json:"uid,omitempty" bson:"uid,omitempty"`
+	UID        string    `json:"uid,omitempty" bson:"uid,omitempty"`
 	Category   string    `json:"category,omitempty" bson:"category,omitempty"`
+	ContentId  string    `json:"cid,omitempty" bson:"cid,omitempty"`
 	Embeddings []float32 `json:"embeddings,omitempty" bson:"embeddings,omitempty"`
 	Direction  string    `json:"direction,omitempty" bson:"direction,omitempty"` // determining if this a positive interest or an explicit disinterest
 	Timestamp  float64   `json:"timestamp,omitempty" bson:"timestamp,omitempty"`
 }
 
-type CategoryItem struct {
-	Category   string    `json:"_id,omitempty" bson:"_id,omitempty"`
-	Embeddings []float32 `json:"embeddings,omitempty" bson:"embeddings,omitempty"`
+type UserCredentialItem struct {
+	UID       string `json:"uid,omitempty" bson:"uid,omitempty"`
+	Source    string `json:"source,omitempty" bson:"source,omitempty"`
+	Username  string `username:"username,omitempty" bson:"username,omitempty"`
+	Password  string `json:"password,omitempty" bson:"password,omitempty"`
+	AuthToken string `json:"auth_token,omitempty" bson:"auth_token,omitempty"`
 }

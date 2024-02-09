@@ -2,6 +2,7 @@ package mediacontentservice
 
 import (
 	ctx "context"
+	"fmt"
 	"log"
 	"time"
 
@@ -11,56 +12,90 @@ import (
 )
 
 func NewMediaContents_Mongo(contents []MediaContentItem) {
-	// initialize with global id
-	contents = ForEach[MediaContentItem](contents, func(item *MediaContentItem) { item.CreateGlobalId() })
+	// get the list of sources and ids into an array
+	content_sources, content_ids := make([]string, 0, len(contents)), make([]string, 0, len(contents))
+	ForEach[MediaContentItem](contents, func(item *MediaContentItem) {
+		content_sources = append(content_sources, item.Source)
+		content_ids = append(content_ids, item.Id)
+	})
+	log.Println(len(content_ids), "contents being processed")
 
 	// check which of these exist
 	// for the ones that exist ONLY update the number fields
-	content_ids := Extract[MediaContentItem, string](contents, func(item *MediaContentItem) string { return item.GetGlobalId() })
-	log.Println(len(content_ids), "contents being processed")
-	existing_contents := findItems[MediaContentItem](
-		MEDIA_CONTENTS,
-		&bson.M{"_id": bson.M{"$in": content_ids}},
-		&bson.M{"_id": 1, "score": 1, "comments": 1, "subscribers": 1, "likes": 1, "likes_ratio": 1})
+	// techically the search filter logic is flawed but since we can assume that the sources will always be the same in the array in practice it wont result in an error
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{
+				"source": bson.M{"$in": content_sources},
+				"cid":    bson.M{"$in": content_ids},
+			},
+		}},
+		{{
+			"$project", bson.M{
+				"source":      1,
+				"cid":         1,
+				"score":       1,
+				"comments":    1,
+				"subscribers": 1,
+				"likes":       1,
+				"likes_ratio": 1,
+			},
+		}},
+	}
+	// existing_contents := findItems[MediaContentItem](MEDIA_CONTENTS, filter, projection)
+	existing_contents := findMany[MediaContentItem](MEDIA_CONTENTS, pipeline)
 	log.Println(len(existing_contents), "existing contents found")
-	existing_contents = ForEach[MediaContentItem](existing_contents, func(item *MediaContentItem) {
-		i := Index[MediaContentItem](*item, contents, compareMediaContentItems)
-		item.Score = contents[i].Score
-		item.Comments = contents[i].Comments
-		item.Subscribers = contents[i].Subscribers
-		item.ThumbsupCount = contents[i].ThumbsupCount
-		item.ThumbsupRatio = contents[i].ThumbsupRatio
-	})
-	updateMany[MediaContentItem](MEDIA_CONTENTS, existing_contents)
+
+	// for the existing items, update the numbers with the newly retrieved numbers
+	updateMany[MediaContentItem](
+		MEDIA_CONTENTS,
+		existing_contents,
+		getMediaContentIdFilter,
+		func(item *MediaContentItem) bson.M {
+			return getMediaContentUpdateObj(&contents[Index[MediaContentItem](*item, contents, compareMediaContents)])
+		})
 
 	// for the ones that do not exist
 	// create embeddings
 	// create categorization
 	// create new entry in mongo
 	new_contents := Filter[MediaContentItem](contents, func(item MediaContentItem) bool {
-		return !In(item, existing_contents, compareMediaContentItems)
+		return !In(item, existing_contents, compareMediaContents)
 	})
 	new_contents = ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
 		item.Embeddings = CreateEmbeddingsForOne(item.Digest)
-		item.Category = createMediaContentCategory(item.Embeddings)
-		log.Println(item.Kind, item.ChannelName, item.Title, item.Category)
+		item.Tags = createMediaContentTags(item.Embeddings)
+		item.Digest = "" //clear out the content. No need to present this
+		log.Println(item.Kind, item.ChannelName, item.Title, item.Tags)
 	})
 	insertMany[MediaContentItem](MEDIA_CONTENTS, new_contents)
 }
 
 func NewEnagements_Mongo(engagements []UserEngagementItem) {
-	engagements = ForEach[UserEngagementItem](engagements, func(item *UserEngagementItem) { item.CreateGlobalId() })
-	// check which of these exist
-	eng_ids := Extract[UserEngagementItem, string](engagements, func(item *UserEngagementItem) string { return item.GlobalId })
-	log.Println(len(eng_ids), "engagements being processed")
-	existing_contents := findItems[UserEngagementItem](USER_ENGAGEMENTS, &bson.M{"_id": bson.M{"$in": eng_ids}}, nil)
-	log.Println(len(existing_contents), "existing engagements found")
+	log.Println(len(engagements), "engagements being processed")
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{
+				"$or": Extract[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
+					return bson.M{
+						"username": item.Username,
+						"source":   item.Source,
+						"cid":      item.ContentId,
+						"action":   item.Action,
+					}
+				}),
+			},
+		}},
+	}
+	existing_engagements := findMany[UserEngagementItem](USER_ENGAGEMENTS, pipeline)
+	log.Println(len(existing_engagements), "existing engagements found")
 
 	// for the ones that do not exist
 	// create new entry in mongo
 	new_engs := Filter[UserEngagementItem](engagements, func(item UserEngagementItem) bool {
-		return !In(item, existing_contents, func(a, b *UserEngagementItem) bool { return a.GlobalId == b.GlobalId })
+		return !In(item, existing_engagements, compareUserEngagements)
 	})
+	new_engs = ForEach[UserEngagementItem](new_engs, func(item *UserEngagementItem) { item.UID = getGlobalUID(item.Source, item.Username) })
 	insertMany[UserEngagementItem](USER_ENGAGEMENTS, new_engs)
 }
 
@@ -76,15 +111,21 @@ func NewInterests_Mongo(interests []UserInterestItem) {
 		cat_i := IndexAny[CategoryItem](categories, func(cat *CategoryItem) bool { return cat.Category == item.Category })
 		item.Embeddings = categories[cat_i].Embeddings
 		item.Timestamp = float64(time.Now().UnixNano()) / float64(time.Second)
+		// item.UserId = getGlobalUID(item.Source, item.)
 	})
 	insertMany[UserInterestItem](USER_INTERESTS, interests)
 }
 
 func NewCategories_Mongo(cat_names []string) []CategoryItem {
-	existing_cats := findItems[CategoryItem](
-		INTEREST_CATEGORIES,
-		&bson.M{"_id": bson.M{"$in": cat_names}},
-		nil)
+	// existing_cats := findMany[CategoryItem](INTEREST_CATEGORIES, bson.M{"_id": bson.M{"$in": cat_names}}, nil)
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{
+				"_id": bson.M{"$in": cat_names},
+			},
+		}},
+	}
+	existing_cats := findMany[CategoryItem](INTEREST_CATEGORIES, pipeline)
 	log.Println(len(existing_cats), "categories found")
 
 	new_cat_names := Filter[string](
@@ -108,28 +149,125 @@ func NewCategories_Mongo(cat_names []string) []CategoryItem {
 	return existing_cats
 }
 
-func createMediaContentCategory(media_content_embeddings []float32) string {
+func createMediaContentTags(media_content_embeddings []float32) []string {
 	search_comm := mongo.Pipeline{
-		{{"$search", bson.D{
-			{"cosmosSearch", bson.D{
-				{"vector", media_content_embeddings},
-				{"path", "embeddings"},
-				{"k", 1}, // return the top item
-			}},
-		}}},
-		{{"$project", bson.D{
-			// {"similarityScore", bson.M{"$meta": "searchScore"}},
-			{"_id", "$$ROOT._id"},
-		}}},
+		{{
+			"$search", bson.M{
+				"cosmosSearch": bson.M{
+					"vector": media_content_embeddings,
+					"path":   "embeddings",
+					"k":      2,
+				}, // return the top item
+			},
+		}},
+		{{
+			"$project", bson.M{
+				"_id": 1, //"$$ROOT._id"},
+			},
+		}},
 	}
 	if cursor, err := getMongoCollection(INTEREST_CATEGORIES).Aggregate(ctx.Background(), search_comm); err != nil {
-		return ""
+		return nil
 	} else {
 		defer cursor.Close(ctx.Background())
 		var items []CategoryItem
 		cursor.All(ctx.Background(), &items)
-		return items[0].Category
+		return Extract[CategoryItem, string](items, func(item *CategoryItem) string { return item.Category })
 	}
+}
+
+func NewUserCredential_Mongo(credential UserCredentialItem) string {
+	// this is a brand new user
+	// just make one up using source and username
+	if credential.UID == "" {
+		credential.UID = fmt.Sprintf("%s@%s", credential.Username, credential.Source)
+	}
+	insertOne[UserCredentialItem](USER_IDS, credential)
+	return credential.UID
+}
+
+func GetAllUserCredentials(source string) []UserCredentialItem {
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{"source": source},
+		}},
+	}
+	return findMany[UserCredentialItem](USER_IDS, pipeline)
+}
+
+func GetUserContents(uid string) []MediaContentItem {
+	// get user interest categories
+	// use index to pull in contents from media contents
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{
+				"tags": bson.M{"$in": GetUserInterests(uid)},
+			},
+		}}, // filter
+		{{
+			"$project", bson.M{
+				"entity":     0,
+				"category":   0,
+				"score":      0,
+				"digest":     0,
+				"embeddings": 0,
+			},
+		}}, // projection
+		{{
+			"$sort", bson.M{
+				"created":      -1,
+				"subscribers":  -1,
+				"comments":     -1,
+				"likes":        -1,
+				"likeds_ratio": -1,
+			},
+		}}, // sort
+		{{
+			"$limit", 5,
+		}}, // top 5
+	}
+
+	return findMany[MediaContentItem](MEDIA_CONTENTS, pipeline)
+}
+
+func GetUserInterests(uid string) []string {
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{"uid": uid},
+		}},
+		{{
+			"$project", bson.M{"category": 1},
+		}},
+	}
+	items := findMany[UserInterestItem](USER_INTERESTS, pipeline)
+	return Extract[UserInterestItem, string](items, func(item *UserInterestItem) string {
+		return item.Category
+	})
+}
+
+func getGlobalUID(source, username string) string {
+	return findOne[UserCredentialItem](USER_IDS,
+		bson.M{"source": source, "username": username}).UID
+}
+
+// data object transformers
+func getMediaContentIdFilter(item *MediaContentItem) bson.M {
+	return bson.M{
+		"source": item.Source,
+		"cid":    item.Id,
+	}
+}
+
+func getMediaContentUpdateObj(item *MediaContentItem) bson.M {
+	// only update the following fields
+	return bson.M{
+		"$set": MediaContentItem{
+			Score:         item.Score,
+			Comments:      item.Comments,
+			Subscribers:   item.Subscribers,
+			ThumbsupCount: item.ThumbsupCount,
+			ThumbsupRatio: item.ThumbsupRatio,
+		}}
 }
 
 // mongo db specific operations
@@ -150,7 +288,17 @@ func insertMany[T any](table string, items []T) {
 	}
 }
 
-func updateMany[T DataItem](table string, items []T) {
+// mongo db specific operations
+func insertOne[T any](table string, item T) {
+	coll := getMongoCollection(table)
+	if res, err := coll.InsertOne(ctx.Background(), item); err != nil {
+		log.Println("Insertion failed", err)
+	} else {
+		log.Println(res.InsertedID, "items inserted in Mongo DB", table)
+	}
+}
+
+func updateMany[T any](table string, items []T, filter_func func(item *T) bson.M, update_func func(item *T) bson.M) {
 	// this is done for error handling for mongo db
 	if len(items) == 0 {
 		log.Println("empty list of items. nothing to update")
@@ -161,30 +309,56 @@ func updateMany[T DataItem](table string, items []T) {
 	if res, err := coll.BulkWrite(
 		ctx.Background(),
 		Extract[T, mongo.WriteModel](items, func(item *T) mongo.WriteModel {
-			return mongo.NewUpdateOneModel().
-				SetFilter(bson.M{"_id": (*item).GetGlobalId()}).
-				SetUpdate(bson.M{"$set": item})
+			return mongo.NewUpdateOneModel().SetFilter(filter_func(item)).SetUpdate(update_func(item))
 		})); err != nil {
 		log.Println("Update failed", err)
 	} else {
-		log.Println(res.ModifiedCount, "items updated in Mongo DB", table)
+		log.Println(res.MatchedCount, "items updated in Mongo DB", table)
 	}
 }
 
-func findItems[T any](table string, filter *bson.M, fields *bson.M) []T {
+func findOne[T any](table string, filter bson.M) T {
+	var item T
 	coll := getMongoCollection(table)
-	var cursor *mongo.Cursor
-	if fields != nil {
-		find_options := options.Find().SetProjection(fields)
-		cursor, _ = coll.Find(ctx.Background(), filter, find_options)
-	} else {
-		cursor, _ = coll.Find(ctx.Background(), filter)
+	if err := coll.FindOne(ctx.Background(), filter).Decode(&item); err != nil {
+		log.Println("couldn't find item", err)
 	}
-	defer cursor.Close(ctx.Background())
-	var items []T
-	cursor.All(ctx.Background(), &items)
-	return items
+	return item
 }
+
+func findMany[T any](table string, pipeline mongo.Pipeline) []T {
+	cursor, err := getMongoCollection(table).Aggregate(ctx.Background(), pipeline)
+	if err == nil {
+		defer cursor.Close(ctx.Background())
+		var contents []T
+		if err = cursor.All(ctx.Background(), &contents); err == nil {
+			return contents
+		}
+	}
+	log.Println("Couldn't retrieve items from", table, "| error:", err)
+	return nil
+}
+
+// func findItems[T any](table string, filter bson.M, fields bson.M) []T {
+// 	var (
+// 		cursor *mongo.Cursor
+// 		err    error
+// 	)
+// 	coll := getMongoCollection(table)
+// 	if fields != nil {
+// 		cursor, err = coll.Find(ctx.Background(), filter, options.Find().SetProjection(fields))
+// 	} else {
+// 		cursor, err = coll.Find(ctx.Background(), filter)
+// 	}
+// 	if err != nil {
+// 		log.Println("couldn't find items in", table, err)
+// 		return nil
+// 	}
+// 	defer cursor.Close(ctx.Background())
+// 	var items []T
+// 	cursor.All(ctx.Background(), &items)
+// 	return items
+// }
 
 // mongo DB and collections clients
 var mongo_client *mongo.Client
