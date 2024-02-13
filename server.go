@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	utils "github.com/soumitsalman/data-utils"
 	ds "github.com/soumitsalman/media-content-service/api"
 	"golang.org/x/time/rate"
 )
@@ -29,10 +30,10 @@ func newContentsHandler(ctx *gin.Context) {
 	ctx.BindJSON(&contents)
 
 	// TODO: remove this
-	ds.PrintTable[ds.MediaContentItem](ds.SafeSlice[ds.MediaContentItem](contents, 0, 5),
+	utils.PrintTable[ds.MediaContentItem](utils.SafeSlice[ds.MediaContentItem](contents, 0, 5),
 		[]string{"Kind", "Channel", "Id", "Created", "Subscribers", "Comments", "Likes"},
 		func(item *ds.MediaContentItem) []string {
-			return []string{item.Kind, item.ChannelName, item.Id, ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
+			return []string{item.Kind, item.ChannelName, item.Id, utils.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
 		})
 
 	go ds.NewMediaContents_Mongo(contents)
@@ -45,10 +46,10 @@ func getContentsHandler(ctx *gin.Context) {
 	contents := ds.GetUserContentSuggestions(uid, kind)
 
 	// TODO: remove this
-	ds.PrintTable[ds.MediaContentItem](ds.SafeSlice[ds.MediaContentItem](contents, 0, 5),
+	utils.PrintTable[ds.MediaContentItem](utils.SafeSlice[ds.MediaContentItem](contents, 0, 5),
 		[]string{"Kind", "Channel", "Id", "Created", "Subscribers", "Comments", "Likes"},
 		func(item *ds.MediaContentItem) []string {
-			return []string{item.Kind, item.ChannelName, item.Id, ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
+			return []string{item.Kind, item.ChannelName, item.Id, utils.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
 		})
 
 	ctx.JSON(http.StatusOK, contents)
@@ -59,7 +60,7 @@ func getCredsHandler(ctx *gin.Context) {
 	creds := ds.GetAllUserCredentials(source)
 
 	// TODO: remove this
-	ds.PrintTable[ds.UserCredentialItem](creds,
+	utils.PrintTable[ds.UserCredentialItem](creds,
 		[]string{"UID", "Source", "Username", "Password"},
 		func(item *ds.UserCredentialItem) []string {
 			return []string{item.UID, item.Source, item.Username, item.Password}
@@ -80,7 +81,7 @@ func newEngagementHandler(ctx *gin.Context) {
 	ctx.BindJSON(&engagements)
 
 	// TODO: remove this
-	ds.PrintTable[ds.UserEngagementItem](ds.SafeSlice[ds.UserEngagementItem](engagements, 0, 5),
+	utils.PrintTable[ds.UserEngagementItem](utils.SafeSlice[ds.UserEngagementItem](engagements, 0, 5),
 		[]string{"Engagement"},
 		func(item *ds.UserEngagementItem) []string {
 			return []string{fmt.Sprintf("%s->%s@%s:%s", item.Username, item.ContentId, item.Source, item.Action)}

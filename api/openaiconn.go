@@ -6,6 +6,7 @@ import (
 	"os"
 
 	openai "github.com/otiai10/openaigo"
+	utils "github.com/soumitsalman/data-utils"
 	"github.com/tiktoken-go/tokenizer"
 )
 
@@ -44,7 +45,7 @@ func CreateEmbeddingsForMany(text_array []string) [][]float32 {
 		log.Println(err)
 		return nil
 	}
-	return Extract[openai.EmbeddingData, []float32](
+	return utils.Transform[openai.EmbeddingData, []float32](
 		resp.Data,
 		func(data *openai.EmbeddingData) []float32 { return data.Embedding })
 }
@@ -73,6 +74,6 @@ func truncateTextForModel(text string, model string) string {
 		enc, _ = tokenizer.Get(tokenizer.Cl100kBase)
 	}
 	tokens, _, _ := enc.Encode(text)
-	res, _ := enc.Decode(SafeSlice[uint](tokens, 0, MAX_TOKEN_LIMIT))
+	res, _ := enc.Decode(utils.SafeSlice[uint](tokens, 0, MAX_TOKEN_LIMIT))
 	return res
 }

@@ -1,5 +1,5 @@
 // archive this file
-package mediacontentservice
+package ARCHIVE
 
 import (
 	ctx "context"
@@ -8,12 +8,14 @@ import (
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
+	utils "github.com/soumitsalman/data-utils"
+	ds "github.com/soumitsalman/media-content-service/api"
 )
 
 const TRANSACTION_BATCH_SIZE = 99
 
-func NewEnagements_AzTables(engagements []UserEngagementItem) {
-	engagements_table := getAzureTable(USER_ENGAGEMENTS)
+func NewEnagements_AzTables(engagements []ds.UserEngagementItem) {
+	engagements_table := getAzureTable(ds.USER_ENGAGEMENTS)
 	transactions := make([]aztables.TransactionAction, len(engagements))
 	for i, eng := range engagements {
 		partition_key, row_key := eng.CreateKeys()
@@ -28,8 +30,8 @@ func NewEnagements_AzTables(engagements []UserEngagementItem) {
 	submitSafeTransaction(transactions, engagements_table)
 }
 
-func NewContents_AzTable(contents []MediaContentItem) {
-	contents_table := getAzureTable(MEDIA_CONTENTS)
+func NewContents_AzTable(contents []ds.MediaContentItem) {
+	contents_table := getAzureTable(ds.MEDIA_CONTENTS)
 	// create a long transaction batch
 	transactions := make([]aztables.TransactionAction, len(contents))
 	for i, cnt := range contents {
@@ -46,8 +48,8 @@ func NewContents_AzTable(contents []MediaContentItem) {
 	submitSafeTransaction(transactions, contents_table)
 }
 
-func ensureEmbeddingsAndCategorizies(item *MediaContentItem) {
-	vectors := CreateEmbeddingsForOne(item.Digest)
+func ensureEmbeddingsAndCategorizies(item *ds.MediaContentItem) {
+	vectors := ds.CreateEmbeddingsForOne(item.Digest)
 	log.Println(len(vectors), vectors[0], vectors[len(vectors)-1])
 }
 
@@ -69,7 +71,7 @@ func newTransactionAction(table *aztables.Client,
 
 func submitSafeTransaction(transactions []aztables.TransactionAction, table *aztables.Client) {
 	for i := 0; i < len(transactions); i += TRANSACTION_BATCH_SIZE {
-		batch := SafeSlice[aztables.TransactionAction](transactions, i, i+TRANSACTION_BATCH_SIZE)
+		batch := utils.SafeSlice[aztables.TransactionAction](transactions, i, i+TRANSACTION_BATCH_SIZE)
 		if _, err := table.SubmitTransaction(ctx.Background(), batch, nil); err != nil {
 			log.Println(err)
 		} else {
@@ -84,7 +86,7 @@ var azure_storage_client *aztables.ServiceClient
 
 func getAzureStorageClient() *aztables.ServiceClient {
 	if azure_storage_client == nil {
-		if client, err := aztables.NewServiceClientFromConnectionString(os.Getenv(DB_CONNECTION_STRING), nil); err != nil {
+		if client, err := aztables.NewServiceClientFromConnectionString(os.Getenv(ds.DB_CONNECTION_STRING), nil); err != nil {
 			log.Println(err)
 		} else {
 			azure_storage_client = client

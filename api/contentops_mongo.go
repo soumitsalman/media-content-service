@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	utils "github.com/soumitsalman/data-utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,7 +15,7 @@ import (
 func NewMediaContents_Mongo(contents []MediaContentItem) {
 	// get the list of sources and ids into an array
 	content_sources, content_ids := make([]string, 0, len(contents)), make([]string, 0, len(contents))
-	ForEach[MediaContentItem](contents, func(item *MediaContentItem) {
+	utils.ForEach[MediaContentItem](contents, func(item *MediaContentItem) {
 		content_sources = append(content_sources, item.Source)
 		content_ids = append(content_ids, item.Id)
 	})
@@ -52,17 +53,17 @@ func NewMediaContents_Mongo(contents []MediaContentItem) {
 		existing_contents,
 		getMediaContentIdFilter,
 		func(item *MediaContentItem) bson.M {
-			return getMediaContentUpdateObj(&contents[Index[MediaContentItem](*item, contents, compareMediaContents)])
+			return getMediaContentUpdateObj(&contents[utils.Index[MediaContentItem](*item, contents, compareMediaContents)])
 		})
 
 	// for the ones that do not exist
 	// create embeddings
 	// create categorization
 	// create new entry in mongo
-	new_contents := Filter[MediaContentItem](contents, func(item MediaContentItem) bool {
-		return !In(item, existing_contents, compareMediaContents)
+	new_contents := utils.Filter[MediaContentItem](contents, func(item *MediaContentItem) bool {
+		return !utils.In(*item, existing_contents, compareMediaContents)
 	})
-	new_contents = ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
+	new_contents = utils.ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
 		item.Embeddings = CreateEmbeddingsForOne(item.Digest)
 		item.Tags = createMediaContentTags(item.Embeddings)
 		item.Digest = "" //clear out the content. No need to present this
@@ -76,7 +77,7 @@ func NewEnagements_Mongo(engagements []UserEngagementItem) {
 	pipeline := mongo.Pipeline{
 		{{
 			"$match", bson.M{
-				"$or": Extract[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
+				"$or": utils.Transform[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
 					return bson.M{
 						"username": item.Username,
 						"source":   item.Source,
@@ -92,23 +93,23 @@ func NewEnagements_Mongo(engagements []UserEngagementItem) {
 
 	// for the ones that do not exist
 	// create new entry in mongo
-	new_engs := Filter[UserEngagementItem](engagements, func(item UserEngagementItem) bool {
-		return !In(item, existing_engagements, compareUserEngagements)
+	new_engs := utils.Filter[UserEngagementItem](engagements, func(item *UserEngagementItem) bool {
+		return !utils.In(*item, existing_engagements, compareUserEngagements)
 	})
-	new_engs = ForEach[UserEngagementItem](new_engs, func(item *UserEngagementItem) { item.UID = getGlobalUID(item.Source, item.Username) })
+	new_engs = utils.ForEach[UserEngagementItem](new_engs, func(item *UserEngagementItem) { item.UID = getGlobalUID(item.Source, item.Username) })
 	insertMany[UserEngagementItem](USER_ENGAGEMENTS, new_engs)
 }
 
 func NewInterests_Mongo(interests []UserInterestItem) {
 	// creating embeddings is more expensive so do double check
 	// find existing embeddings so that there is no need to do multiple embedding calls since thats more expensive
-	cat_names := Extract[UserInterestItem, string](interests, func(item *UserInterestItem) string { return item.Category })
+	cat_names := utils.Transform[UserInterestItem, string](interests, func(item *UserInterestItem) string { return item.Category })
 	log.Println(len(cat_names), "interests being processed")
 	categories := NewCategories_Mongo(cat_names)
 
 	// for all items all have embeddings - just put them in user interest table
-	interests = ForEach[UserInterestItem](interests, func(item *UserInterestItem) {
-		cat_i := IndexAny[CategoryItem](categories, func(cat *CategoryItem) bool { return cat.Category == item.Category })
+	interests = utils.ForEach[UserInterestItem](interests, func(item *UserInterestItem) {
+		cat_i := utils.IndexAny[CategoryItem](categories, func(cat *CategoryItem) bool { return cat.Category == item.Category })
 		item.Embeddings = categories[cat_i].Embeddings
 		item.Timestamp = float64(time.Now().UnixNano()) / float64(time.Second)
 		// item.UserId = getGlobalUID(item.Source, item.)
@@ -128,10 +129,10 @@ func NewCategories_Mongo(cat_names []string) []CategoryItem {
 	existing_cats := findMany[CategoryItem](INTEREST_CATEGORIES, pipeline)
 	log.Println(len(existing_cats), "categories found")
 
-	new_cat_names := Filter[string](
+	new_cat_names := utils.Filter[string](
 		cat_names,
-		func(item string) bool {
-			return !Any[CategoryItem](existing_cats, func(cat *CategoryItem) bool { return cat.Category == item })
+		func(item *string) bool {
+			return !utils.Any[CategoryItem](existing_cats, func(cat *CategoryItem) bool { return cat.Category == *item })
 		})
 	log.Println(len(new_cat_names), "new categories need embeddings")
 
@@ -172,7 +173,7 @@ func createMediaContentTags(media_content_embeddings []float32) []string {
 		defer cursor.Close(ctx.Background())
 		var items []CategoryItem
 		cursor.All(ctx.Background(), &items)
-		return Extract[CategoryItem, string](items, func(item *CategoryItem) string { return item.Category })
+		return utils.Transform[CategoryItem, string](items, func(item *CategoryItem) string { return item.Category })
 	}
 }
 
@@ -209,7 +210,7 @@ func GetUserContentSuggestions(uid string, kind string) []MediaContentItem {
 		match_clause["tags"] = bson.M{"$in": interests}
 	}
 	if len(engagements) > 0 {
-		match_clause["$nor"] = Extract[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
+		match_clause["$nor"] = utils.Transform[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
 			return bson.M{
 				"source": item.Source,
 				"cid":    item.ContentId,
@@ -266,7 +267,7 @@ func GetUserInterests(uid string) []string {
 		}},
 	}
 	items := findMany[UserInterestItem](USER_INTERESTS, pipeline)
-	return Extract[UserInterestItem, string](items, func(item *UserInterestItem) string {
+	return utils.Transform[UserInterestItem, string](items, func(item *UserInterestItem) string {
 		return item.Category
 	})
 }
@@ -307,7 +308,7 @@ func insertMany[T any](table string, items []T) {
 	coll := getMongoCollection(table)
 	if res, err := coll.InsertMany(
 		ctx.Background(),
-		Extract[T, any](items, func(item *T) any { return item })); err != nil {
+		utils.Transform[T, any](items, func(item *T) any { return item })); err != nil {
 		log.Println("Insertion failed", err)
 	} else {
 		log.Println(len(res.InsertedIDs), "items inserted in Mongo DB", table)
@@ -334,7 +335,7 @@ func updateMany[T any](table string, items []T, filter_func func(item *T) bson.M
 	coll := getMongoCollection(table)
 	if res, err := coll.BulkWrite(
 		ctx.Background(),
-		Extract[T, mongo.WriteModel](items, func(item *T) mongo.WriteModel {
+		utils.Transform[T, mongo.WriteModel](items, func(item *T) mongo.WriteModel {
 			return mongo.NewUpdateOneModel().SetFilter(filter_func(item)).SetUpdate(update_func(item))
 		})); err != nil {
 		log.Println("Update failed", err)

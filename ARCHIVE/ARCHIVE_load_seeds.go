@@ -1,5 +1,5 @@
 // delete this file later
-package main
+package ARCHIVE
 
 import (
 	"encoding/csv"
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	utils "github.com/soumitsalman/data-utils"
 	ds "github.com/soumitsalman/media-content-service/api"
 	// "github.com/otiai10/openaigo"
 )
@@ -44,8 +45,8 @@ func _loadSeedFile() {
 	// ds.NewInterests_Mongo(user_interests[1:])
 
 	table.SetHeader([]string{"Kind", "Channel", "Tags", "Created", "Subscribers", "Comments", "Likes"})
-	ds.ForEach[ds.MediaContentItem](ds.GetUserContentSuggestions("danny_004", "post"), func(item *ds.MediaContentItem) {
-		table.Append([]string{item.Kind, item.ChannelName, strings.Join(item.Tags, ", "), ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)})
+	utils.ForEach[ds.MediaContentItem](ds.GetUserContentSuggestions("danny_004", "post"), func(item *ds.MediaContentItem) {
+		table.Append([]string{item.Kind, item.ChannelName, strings.Join(item.Tags, ", "), utils.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)})
 	})
 	// table.Render()
 
