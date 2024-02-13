@@ -195,14 +195,31 @@ func GetAllUserCredentials(source string) []UserCredentialItem {
 	return findMany[UserCredentialItem](USER_IDS, pipeline)
 }
 
-func GetUserContents(uid string) []MediaContentItem {
+func GetUserContentSuggestions(uid string, kind string) []MediaContentItem {
 	// get user interest categories
+	interests := GetUserInterests(uid)
+	engagements := GetUserContentEngagements(uid)
+
 	// use index to pull in contents from media contents
+	var match_clause = bson.M{}
+	if kind != "*" && kind != "" {
+		match_clause["kind"] = kind
+	}
+	if len(interests) > 0 {
+		match_clause["tags"] = bson.M{"$in": interests}
+	}
+	if len(engagements) > 0 {
+		match_clause["$nor"] = Extract[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
+			return bson.M{
+				"source": item.Source,
+				"cid":    item.ContentId,
+			}
+		})
+	}
+
 	pipeline := mongo.Pipeline{
 		{{
-			"$match", bson.M{
-				"tags": bson.M{"$in": GetUserInterests(uid)},
-			},
+			"$match", match_clause,
 		}}, // filter
 		{{
 			"$project", bson.M{
@@ -215,9 +232,9 @@ func GetUserContents(uid string) []MediaContentItem {
 		}}, // projection
 		{{
 			"$sort", bson.M{
-				"created":      -1,
 				"subscribers":  -1,
 				"comments":     -1,
+				"created":      -1,
 				"likes":        -1,
 				"likeds_ratio": -1,
 			},
@@ -228,6 +245,15 @@ func GetUserContents(uid string) []MediaContentItem {
 	}
 
 	return findMany[MediaContentItem](MEDIA_CONTENTS, pipeline)
+}
+
+func GetUserContentEngagements(uid string) []UserEngagementItem {
+	pipeline := mongo.Pipeline{
+		{{
+			"$match", bson.M{"uid": uid},
+		}},
+	}
+	return findMany[UserEngagementItem](USER_ENGAGEMENTS, pipeline)
 }
 
 func GetUserInterests(uid string) []string {

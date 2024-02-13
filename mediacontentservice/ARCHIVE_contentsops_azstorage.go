@@ -1,3 +1,4 @@
+// archive this file
 package mediacontentservice
 
 import (
@@ -45,42 +46,7 @@ func NewContents_AzTable(contents []MediaContentItem) {
 	submitSafeTransaction(transactions, contents_table)
 }
 
-// func getCategoryVectors() [][]float32 {
-// 	table := getTable(USER_INTERESTS_TABLE)
-
-// 	columns := "interests"
-// 	for pager := table.NewListEntitiesPager(&aztables.ListEntitiesOptions{
-// 		Select: &columns,
-// 	}); pager.More(); {
-// 		page, _ := pager.NextPage(ctx.Background())
-// 		for _, ent := range page.Entities {
-// 			var results = make(map[string]string)
-// 			json.Unmarshal(ent, &results)
-// 			// put the result in a map
-// 		}
-
-// 	}
-// }
-
 func ensureEmbeddingsAndCategorizies(item *MediaContentItem) {
-	// var builder strings.Builder
-	// for subreddits: 1024 tokens in body + 512 tokens * 5 posts
-	// for posts: 3072 tokens in body +  256 tokens * 5 comments
-	// if body := fmt.Sprintln(item.Source, item.Kind, ":", item.Text); item.Kind == CHANNEL {
-	// 	builder.WriteString(truncateTextWithEllipsis(body, 1024*4))
-	// } else {
-	// 	builder.WriteString(truncateTextWithEllipsis(body, 3072*4))
-	// }
-
-	// for _, child := range item.Children {
-
-	// 	if c_body := fmt.Sprintln(child.Kind, ":", child.Text); item.Kind == CHANNEL {
-	// 		builder.WriteString(truncateTextWithEllipsis(c_body, 512*4))
-	// 	} else {
-	// 		builder.WriteString(truncateTextWithEllipsis(c_body, 256*4))
-	// 	}
-	// }
-	// TODO: put it in go for threading
 	vectors := CreateEmbeddingsForOne(item.Digest)
 	log.Println(len(vectors), vectors[0], vectors[len(vectors)-1])
 }

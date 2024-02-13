@@ -16,6 +16,8 @@ type MediaContentItem struct {
 	// unique identifier across media source. every reddit item has one. In reddit this is the name
 	// in azure cosmos DB every record/item has to have an id.
 	// In case of media content the media content itself comes with an unique identifier that we can use
+
+	// TODO: remove this
 	aztables.Entity
 	// which social media source is this coming from
 	Source string `json:"source,omitempty" bson:"source,omitempty"`
@@ -65,6 +67,7 @@ type MediaContentItem struct {
 	Embeddings []float32 `json:"embeddings,omitempty" bson:"embeddings,omitempty"`
 }
 
+// TODO: remove this
 func (item *MediaContentItem) CreateKeys() (string, string) {
 	item.Entity.PartitionKey, item.Entity.RowKey = item.Source, item.Id
 	return item.Entity.PartitionKey, item.Entity.RowKey
@@ -80,7 +83,9 @@ type CategoryItem struct {
 }
 
 type UserEngagementItem struct {
+	// TODO: remove this field
 	aztables.Entity
+
 	UID       string `json:"uid,omitempty" bson:"uid,omitempty"`
 	Username  string `json:"username,omitempty" bson:"username,omitempty"`
 	Source    string `json:"source,omitempty" bson:"source,omitempty"`

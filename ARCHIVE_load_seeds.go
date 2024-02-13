@@ -1,3 +1,4 @@
+// delete this file later
 package main
 
 import (
@@ -5,6 +6,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	ds "github.com/soumitsr/media-content-service/mediacontentservice"
@@ -40,17 +43,16 @@ func _loadSeedFile() {
 	// )
 	// ds.NewInterests_Mongo(user_interests[1:])
 
-	// table.SetHeader([]string{"Kind", "Channel", "Tags", "Created", "Subscribers", "Comments", "Likes"})
-	// ds.ForEach[ds.MediaContentItem](ds.GetUserContents("danny_002"), func(item *ds.MediaContentItem) {
-	// 	// log.Printf("\n%s: [%s] %s\n%v\n%d | %d | %d\n", item.Kind, item.ChannelName, "", item.Tags, item.Subscribers, item.Comments, item.ThumbsupCount)
-	// 	table.Append([]string{item.Kind, item.ChannelName, strings.Join(item.Tags, ", "), ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)})
-	// })
+	table.SetHeader([]string{"Kind", "Channel", "Tags", "Created", "Subscribers", "Comments", "Likes"})
+	ds.ForEach[ds.MediaContentItem](ds.GetUserContentSuggestions("danny_004", "post"), func(item *ds.MediaContentItem) {
+		table.Append([]string{item.Kind, item.ChannelName, strings.Join(item.Tags, ", "), ds.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)})
+	})
 	// table.Render()
 
-	table.SetHeader([]string{"UID", "Source", "Username", "PW"})
-	ds.ForEach[ds.UserCredentialItem](ds.GetAllUserCredentials("SLACK"), func(item *ds.UserCredentialItem) {
-		table.Append([]string{item.UID, item.Source, item.Username, item.Password})
-	})
+	// table.SetHeader([]string{"UID", "Source", "Username", "PW"})
+	// ds.ForEach[ds.UserCredentialItem](ds.GetAllUserCredentials("SLACK"), func(item *ds.UserCredentialItem) {
+	// 	table.Append([]string{item.UID, item.Source, item.Username, item.Password})
+	// })
 	table.Render()
 
 }
@@ -79,11 +81,6 @@ func readCsv(path string) [][]string {
 	reader := csv.NewReader(file)
 	items, _ := reader.ReadAll()
 	return items
-}
-
-func main() {
-	_loadSeedFile()
-	// _tryEmbeddings()
 }
 
 // cats := []string{

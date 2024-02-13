@@ -1,6 +1,11 @@
 package mediacontentservice
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"github.com/olekukonko/tablewriter"
+)
 
 // data utilities
 func Filter[T any](items []T, condition func(item T) bool) []T {
@@ -90,4 +95,19 @@ func min(a, b int) int {
 func DateToString(time_val float64) string {
 	timeValue := time.Unix(int64(time_val), 0)
 	return timeValue.Format("2006-01-02")
+}
+
+func PrintTable[T any](contents []T, headers []string, fields func(item *T) []string) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetBorder(true)
+	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(true)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+
+	table.SetHeader(headers)
+	ForEach[T](contents, func(item *T) {
+		table.Append(fields(item))
+	})
+	table.Render()
 }
