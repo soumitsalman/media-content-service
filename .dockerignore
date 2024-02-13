@@ -1,10 +1,7 @@
 .gitignore
 __blobstorage__*
 __queuestorage__*
-ARCHIVE_load_seeds.go
-mediacontentservice/ARCHIVE_contentsops_azstorage.go
+ARCHIVE*
 *.json
 *.env
 *.csv
-__blobstorage__*
-__queuestorage__*
