@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	ds "github.com/soumitsr/media-content-service/mediacontentservice"
+	ds "github.com/soumitsalman/media-content-service/api"
 	"golang.org/x/time/rate"
 )
 

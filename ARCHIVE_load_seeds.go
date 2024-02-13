@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	ds "github.com/soumitsr/media-content-service/mediacontentservice"
+	ds "github.com/soumitsalman/media-content-service/api"
 	// "github.com/otiai10/openaigo"
 )
 
