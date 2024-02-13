@@ -4,17 +4,31 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	ds "github.com/soumitsr/media-content-service/mediacontentservice"
+	"golang.org/x/time/rate"
 )
+
+func getPort() string {
+	if port := os.Getenv("SERVER_PORT"); port != "" {
+		return ":" + port
+	}
+	return ":8080"
+}
+
+func getInternalAuthToken() string {
+	return os.Getenv("INTERNAL_AUTH_TOKEN")
+}
 
 func newContentsHandler(ctx *gin.Context) {
 	// request for posting new contents
 	var contents []ds.MediaContentItem
 	ctx.BindJSON(&contents)
 
+	// TODO: remove this
 	ds.PrintTable[ds.MediaContentItem](ds.SafeSlice[ds.MediaContentItem](contents, 0, 5),
 		[]string{"Kind", "Channel", "Id", "Created", "Subscribers", "Comments", "Likes"},
 		func(item *ds.MediaContentItem) []string {
@@ -30,6 +44,7 @@ func getContentsHandler(ctx *gin.Context) {
 	log.Println(uid, kind)
 	contents := ds.GetUserContentSuggestions(uid, kind)
 
+	// TODO: remove this
 	ds.PrintTable[ds.MediaContentItem](ds.SafeSlice[ds.MediaContentItem](contents, 0, 5),
 		[]string{"Kind", "Channel", "Id", "Created", "Subscribers", "Comments", "Likes"},
 		func(item *ds.MediaContentItem) []string {
@@ -43,6 +58,7 @@ func getCredsHandler(ctx *gin.Context) {
 	source := ctx.Param("source")
 	creds := ds.GetAllUserCredentials(source)
 
+	// TODO: remove this
 	ds.PrintTable[ds.UserCredentialItem](creds,
 		[]string{"UID", "Source", "Username", "Password"},
 		func(item *ds.UserCredentialItem) []string {
@@ -63,6 +79,7 @@ func newEngagementHandler(ctx *gin.Context) {
 	var engagements []ds.UserEngagementItem
 	ctx.BindJSON(&engagements)
 
+	// TODO: remove this
 	ds.PrintTable[ds.UserEngagementItem](ds.SafeSlice[ds.UserEngagementItem](engagements, 0, 5),
 		[]string{"Engagement"},
 		func(item *ds.UserEngagementItem) []string {
@@ -74,18 +91,33 @@ func newEngagementHandler(ctx *gin.Context) {
 }
 
 func main() {
+	log.Println(os.Environ())
+
 	router := gin.Default()
 
 	auth_group := router.Group("/")
-	// authn middleware
-	auth_group.Use(func(ctx *gin.Context) {
-		token_str := ctx.GetHeader("Authorization")
-		if token_str == getInternalAuthToken() {
+
+	// 100 tokens per sec with burst of 1000
+	// TODO: make this check per user in future
+	rate_limiter := rate.NewLimiter(100, 1000)
+	rate_limit_handler := func(ctx *gin.Context) {
+		if rate_limiter.Allow() {
+			ctx.Next()
+		} else {
+			ctx.AbortWithStatus(http.StatusTooManyRequests)
+		}
+	}
+
+	auth_handler := func(ctx *gin.Context) {
+		if ctx.GetHeader("Authorization") == getInternalAuthToken() {
 			ctx.Next()
 		} else {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
-	})
+	}
+
+	// authn and ratelimit middleware
+	auth_group.Use(rate_limit_handler, auth_handler)
 
 	// routes
 	auth_group.GET("/contents/:uid", getContentsHandler)

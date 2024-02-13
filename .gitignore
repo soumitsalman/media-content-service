@@ -1,6 +1,5 @@
-__azurite_*__.json
-.env
-Seed Data for Cafecito - user_ids.csv
-Seed Data for Cafecito - user_interests.csv
+*.json
+*.env
+*.csv
 __blobstorage__*
 __queuestorage__*
