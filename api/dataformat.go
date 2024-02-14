@@ -1,4 +1,4 @@
-package mediacontentservice
+package api
 
 import (
 	"fmt"
@@ -19,38 +19,23 @@ type MediaContentItem struct {
 
 	// TODO: remove this
 	aztables.Entity
-	// which social media source is this coming from
-	Source string `json:"source,omitempty" bson:"source,omitempty"`
-	// unique id across Source
-	Id string `json:"cid,omitempty" bson:"cid,omitempty"`
 
-	// represents text title of the item. Applies to subreddits and posts but not comments
-	Title string `json:"title,omitempty" bson:"title,omitempty"`
-	// unique short name across the Source
-	Name string `json:"name,omitempty" bson:"name,omitempty"`
-	// Subreddit, Post or Comment. This is not directly serialized
-	Kind string `json:"kind,omitempty" bson:"kind,omitempty"`
+	Source string `json:"source,omitempty" bson:"source,omitempty"` // which social media source is this coming from
+	Id     string `json:"cid,omitempty" bson:"cid,omitempty"`       // unique id across Source
 
-	// Applies to comments and posts.
-	// For comments: this represents which post or comment does this comment respond to.
-	// for posts: this is the same value as the channel
-	ChannelName string `json:"channel,omitempty" bson:"channel,omitempty"`
-
-	//post text
-	Text string `json:"text,omitempty" bson:"text,omitempty"`
-	// for posts this is url posted by the post
-	// for subreddit this is link
-	Url string `json:"url,omitempty" bson:"url,omitempty"`
+	Title       string `json:"title,omitempty" bson:"title,omitempty"` // represents text title of the item. Applies to subreddits and posts but not comments
+	Name        string `json:"name,omitempty" bson:"name,omitempty"`
+	Kind        string `json:"kind,omitempty" bson:"kind,omitempty"`
+	ChannelName string `json:"channel,omitempty" bson:"channel,omitempty"` // fancy name of the channel represented by the channel itself or the channel where the post/comment is
+	Excerpt     string `json:"excerpt,omitempty" bson:"excerpt,omitempty"`
+	Text        string `json:"text,omitempty" bson:"text,omitempty"`
+	Url         string `json:"url,omitempty" bson:"url,omitempty"`
 
 	//subreddit category
-	Category string `json:"category,omitempty" bson:"category,omitempty"`
-
-	Tags []string `json:"tags,omitempty" bson:"tags,omitempty"`
-
-	// author of posts or comments. Empty for subreddits
-	Author string `json:"author,omitempty" bson:"author,omitempty"`
-	// date of creation of the post or comment. Empty for subreddits
-	Created float64 `json:"created,omitempty" bson:"created,omitempty"`
+	Category string   `json:"category,omitempty" bson:"category,omitempty"`
+	Tags     []string `json:"tags,omitempty" bson:"tags,omitempty"`
+	Author   string   `json:"author,omitempty" bson:"author,omitempty"`   // author of posts or comments. Empty for subreddits
+	Created  float64  `json:"created,omitempty" bson:"created,omitempty"` // date of creation of the post or comment. Empty for subreddits
 
 	// Applies to posts and comments. Doesn't apply to subreddits
 	Score int `json:"score,omitempty" bson:"score,omitempty"`

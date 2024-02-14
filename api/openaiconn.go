@@ -1,31 +1,21 @@
-package mediacontentservice
+package api
 
 import (
 	ctx "context"
 	"log"
-	"os"
 
 	openai "github.com/otiai10/openaigo"
 	utils "github.com/soumitsalman/data-utils"
 	"github.com/tiktoken-go/tokenizer"
 )
 
-const (
-	OPENAI_API_KEY   = "OPENAI_API_KEY"
-	OPENAI_BASE_URL  = "OPENAI_BASE_URL"
-	OPENAI_ORG_ID    = "OPENAI_ORG_ID"
-	COMPLETION_MODEL = "gpt-3.5-turbo"
-	EMBEDDINGS_MODEL = "text-embedding-3-small"
-	MAX_TOKEN_LIMIT  = 4096
-)
-
 var openai_client *openai.Client
 
 func getOpenaiClient() *openai.Client {
 	if openai_client == nil {
-		openai_client = openai.NewClient(os.Getenv(OPENAI_API_KEY))
-		openai_client.BaseURL = os.Getenv(OPENAI_BASE_URL)
-		openai_client.Organization = os.Getenv(OPENAI_ORG_ID)
+		openai_client = openai.NewClient(getOpenAIApiKey())
+		openai_client.BaseURL = getOpenAIBaseUrl()
+		openai_client.Organization = getOpenAIOrgID()
 	}
 	return openai_client
 }

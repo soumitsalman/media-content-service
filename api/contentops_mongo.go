@@ -1,4 +1,4 @@
-package mediacontentservice
+package api
 
 import (
 	ctx "context"
@@ -64,10 +64,11 @@ func NewMediaContents_Mongo(contents []MediaContentItem) {
 		return !utils.In(*item, existing_contents, compareMediaContents)
 	})
 	new_contents = utils.ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
+		item.Excerpt = utils.TruncateTextWithEllipsis(item.Text, MAX_EXCEPRT_SIZE)
 		item.Embeddings = CreateEmbeddingsForOne(item.Digest)
 		item.Tags = createMediaContentTags(item.Embeddings)
 		item.Digest = "" //clear out the content. No need to present this
-		log.Println(item.Kind, item.ChannelName, item.Title, item.Tags)
+		// log.Println(item.Kind, item.ChannelName, item.Title, item.Tags)
 	})
 	insertMany[MediaContentItem](MEDIA_CONTENTS, new_contents)
 }
@@ -112,7 +113,6 @@ func NewInterests_Mongo(interests []UserInterestItem) {
 		cat_i := utils.IndexAny[CategoryItem](categories, func(cat *CategoryItem) bool { return cat.Category == item.Category })
 		item.Embeddings = categories[cat_i].Embeddings
 		item.Timestamp = float64(time.Now().UnixNano()) / float64(time.Second)
-		// item.UserId = getGlobalUID(item.Source, item.)
 	})
 	insertMany[UserInterestItem](USER_INTERESTS, interests)
 }
@@ -229,15 +229,16 @@ func GetUserContentSuggestions(uid string, kind string) []MediaContentItem {
 				"score":      0,
 				"digest":     0,
 				"embeddings": 0,
+				"text":       0,
 			},
 		}}, // projection
 		{{
 			"$sort", bson.M{
-				"subscribers":  -1,
-				"comments":     -1,
-				"created":      -1,
-				"likes":        -1,
-				"likeds_ratio": -1,
+				"comments":    -1,
+				"likes":       -1,
+				"likes_ratio": -1,
+				"subscribers": -1,
+				"created":     -1,
 			},
 		}}, // sort
 		{{
@@ -340,7 +341,7 @@ func updateMany[T any](table string, items []T, filter_func func(item *T) bson.M
 		})); err != nil {
 		log.Println("Update failed", err)
 	} else {
-		log.Println(res.MatchedCount, "items updated in Mongo DB", table)
+		log.Println(res.MatchedCount, "items matched in Mongo DB", table)
 	}
 }
 

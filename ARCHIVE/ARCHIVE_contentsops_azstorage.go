@@ -86,7 +86,7 @@ var azure_storage_client *aztables.ServiceClient
 
 func getAzureStorageClient() *aztables.ServiceClient {
 	if azure_storage_client == nil {
-		if client, err := aztables.NewServiceClientFromConnectionString(os.Getenv(ds.DB_CONNECTION_STRING), nil); err != nil {
+		if client, err := aztables.NewServiceClientFromConnectionString(os.Getenv("DB_CONNECTION_STRING"), nil); err != nil {
 			log.Println(err)
 		} else {
 			azure_storage_client = client
