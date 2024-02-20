@@ -21,9 +21,9 @@ jobs:
         uses: GlueOps/github-actions-build-push-containers@v0.3.6
         with:
           dockerfile: dockerfile
-          image_name: media-content-service
+          image_name: soumitsr/media-content-service
           tags: latest
-          registry: "docker.io/soumitsr"
+          registry: "docker.io"
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           
