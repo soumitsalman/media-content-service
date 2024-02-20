@@ -23,7 +23,7 @@ jobs:
           dockerfile: dockerfile
           image_name: media-content-service
           tags: latest
-          registry: "docker.io"
+          registry: "docker.io/soumitsr"
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           
