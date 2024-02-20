@@ -21,24 +21,25 @@ func newContentsHandler(ctx *gin.Context) {
 	// 	})
 	log.Println("New Contents", len(contents))
 
-	go NewMediaContents_Mongo(contents)
+	go NewMediaContents(contents)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
 }
 
 func getContentsHandler(ctx *gin.Context) {
-	uid, kind := ctx.Param("uid"), ctx.Query("kind")
-	log.Println(uid, kind)
+	uid, username, usersource, kind := ctx.Query("uid"), ctx.Query("username"), ctx.Query("usersource"), ctx.Query("kind")
+	// log.Println(uid, username, usersource, kind)
+	// if uid is not specified, use username and usersource to get the uid
+	if uid == "" {
+		uid = getGlobalUID(usersource, username)
+	}
 	contents := GetUserContentSuggestions(uid, kind)
-
-	// TODO: remove this
-	// utils.PrintTable[MediaContentItem](utils.SafeSlice[MediaContentItem](contents, 0, 5),
-	// 	[]string{"Kind", "Channel", "Id", "Created", "Subscribers", "Comments", "Likes"},
-	// 	func(item *MediaContentItem) []string {
-	// 		return []string{item.Kind, item.ChannelName, item.Id, utils.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
-	// 	})
-	log.Println("Got Contents", len(contents))
-
-	ctx.JSON(http.StatusOK, contents)
+	if contents == nil {
+		log.Println("User does not exist")
+		ctx.JSON(http.StatusNoContent, gin.H{"message": "User not found"})
+	} else {
+		log.Println("Got Contents", len(contents))
+		ctx.JSON(http.StatusOK, contents)
+	}
 }
 
 func getCredsHandler(ctx *gin.Context) {
@@ -60,7 +61,7 @@ func newCredsHandler(ctx *gin.Context) {
 	var cred UserCredentialItem
 	ctx.BindJSON(&cred)
 	log.Println("New Creds")
-	go NewUserCredential_Mongo(cred)
+	go NewUserCredential(cred)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
 }
 
@@ -76,7 +77,7 @@ func newEngagementHandler(ctx *gin.Context) {
 	// 	})
 	log.Println("New Engagements", len(engagements))
 
-	go NewEnagements_Mongo(engagements)
+	go NewEnagements(engagements)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
 }
 
@@ -109,12 +110,12 @@ func NewServer(r rate.Limit, b int) *gin.Engine {
 	auth_group.Use(createRateLimitHandler(r, b), authenticationHandler)
 
 	// routes
-	auth_group.GET("/contents/:uid", getContentsHandler)
-	auth_group.POST("/contents/", newContentsHandler)
+	auth_group.GET("/contents", getContentsHandler)
+	auth_group.POST("/contents", newContentsHandler)
 	// router.GET("/engagements/", contentsHandler)
-	auth_group.POST("/engagements/", newEngagementHandler)
+	auth_group.POST("/engagements", newEngagementHandler)
 	auth_group.GET("/users/:source", getCredsHandler)
-	auth_group.POST("/users/", newCredsHandler)
+	auth_group.POST("/users", newCredsHandler)
 
 	// run
 	return router

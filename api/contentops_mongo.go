@@ -12,7 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func NewMediaContents_Mongo(contents []MediaContentItem) {
+func NewMediaContents(contents []MediaContentItem) {
 	// get the list of sources and ids into an array
 	content_sources, content_ids := make([]string, 0, len(contents)), make([]string, 0, len(contents))
 	utils.ForEach[MediaContentItem](contents, func(item *MediaContentItem) {
@@ -63,27 +63,36 @@ func NewMediaContents_Mongo(contents []MediaContentItem) {
 	new_contents := utils.Filter[MediaContentItem](contents, func(item *MediaContentItem) bool {
 		return !utils.In(*item, existing_contents, compareMediaContents)
 	})
-	new_contents = utils.ForEach[MediaContentItem](new_contents, func(item *MediaContentItem) {
-		item.Excerpt = utils.TruncateTextWithEllipsis(item.Text, MAX_EXCEPRT_SIZE)
-		item.Embeddings = CreateEmbeddingsForOne(item.Digest)
-		item.Tags = createMediaContentTags(item.Embeddings)
-		item.Digest = "" //clear out the content. No need to present this
-		// log.Println(item.Kind, item.ChannelName, item.Title, item.Tags)
+	new_contents = utils.Filter[MediaContentItem](new_contents, func(item *MediaContentItem) bool {
+		if item.Digest != "" {
+			item.Excerpt = utils.TruncateTextWithEllipsis(item.Text, MAX_EXCEPRT_SIZE)
+			item.Embeddings = CreateEmbeddingsForOne(item.Digest)
+			item.Tags = createMediaContentTags(item.Embeddings)
+			item.Digest = "" //clear out the content. No need to present this
+			return true
+		}
+		return false
 	})
 	insertMany[MediaContentItem](MEDIA_CONTENTS, new_contents)
 }
 
-func NewEnagements_Mongo(engagements []UserEngagementItem) {
+func NewEnagements(engagements []UserEngagementItem) {
 	log.Println(len(engagements), "engagements being processed")
 	pipeline := mongo.Pipeline{
 		{{
 			"$match", bson.M{
 				"$or": utils.Transform[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
+					// if UID is not specified then get compute it
+					if item.UID == "" {
+						item.UID = getGlobalUID(item.UserSource, item.Username)
+					}
 					return bson.M{
-						"username": item.Username,
-						"source":   item.Source,
-						"cid":      item.ContentId,
-						"action":   item.Action,
+						"uid":        item.UID,
+						"username":   item.Username,
+						"usersource": item.UserSource,
+						"source":     item.Source,
+						"cid":        item.ContentId,
+						"action":     item.Action,
 					}
 				}),
 			},
@@ -101,12 +110,12 @@ func NewEnagements_Mongo(engagements []UserEngagementItem) {
 	insertMany[UserEngagementItem](USER_ENGAGEMENTS, new_engs)
 }
 
-func NewInterests_Mongo(interests []UserInterestItem) {
+func NewInterests(interests []UserInterestItem) {
 	// creating embeddings is more expensive so do double check
 	// find existing embeddings so that there is no need to do multiple embedding calls since thats more expensive
 	cat_names := utils.Transform[UserInterestItem, string](interests, func(item *UserInterestItem) string { return item.Category })
 	log.Println(len(cat_names), "interests being processed")
-	categories := NewCategories_Mongo(cat_names)
+	categories := NewCategories(cat_names)
 
 	// for all items all have embeddings - just put them in user interest table
 	interests = utils.ForEach[UserInterestItem](interests, func(item *UserInterestItem) {
@@ -117,7 +126,7 @@ func NewInterests_Mongo(interests []UserInterestItem) {
 	insertMany[UserInterestItem](USER_INTERESTS, interests)
 }
 
-func NewCategories_Mongo(cat_names []string) []CategoryItem {
+func NewCategories(cat_names []string) []CategoryItem {
 	// existing_cats := findMany[CategoryItem](INTEREST_CATEGORIES, bson.M{"_id": bson.M{"$in": cat_names}}, nil)
 	pipeline := mongo.Pipeline{
 		{{
@@ -150,34 +159,7 @@ func NewCategories_Mongo(cat_names []string) []CategoryItem {
 	return existing_cats
 }
 
-func createMediaContentTags(media_content_embeddings []float32) []string {
-	search_comm := mongo.Pipeline{
-		{{
-			"$search", bson.M{
-				"cosmosSearch": bson.M{
-					"vector": media_content_embeddings,
-					"path":   "embeddings",
-					"k":      2,
-				}, // return the top item
-			},
-		}},
-		{{
-			"$project", bson.M{
-				"_id": 1, //"$$ROOT._id"},
-			},
-		}},
-	}
-	if cursor, err := getMongoCollection(INTEREST_CATEGORIES).Aggregate(ctx.Background(), search_comm); err != nil {
-		return nil
-	} else {
-		defer cursor.Close(ctx.Background())
-		var items []CategoryItem
-		cursor.All(ctx.Background(), &items)
-		return utils.Transform[CategoryItem, string](items, func(item *CategoryItem) string { return item.Category })
-	}
-}
-
-func NewUserCredential_Mongo(credential UserCredentialItem) string {
+func NewUserCredential(credential UserCredentialItem) string {
 	// this is a brand new user
 	// just make one up using source and username
 	if credential.UID == "" {
@@ -196,8 +178,12 @@ func GetAllUserCredentials(source string) []UserCredentialItem {
 	return findMany[UserCredentialItem](USER_IDS, pipeline)
 }
 
-func GetUserContentSuggestions(uid string, kind string) []MediaContentItem {
+func GetUserContentSuggestions(uid, kind string) []MediaContentItem {
 	// get user interest categories
+	if !isValidUser(uid) {
+		return nil
+	}
+
 	interests := GetUserInterests(uid)
 	engagements := GetUserContentEngagements(uid)
 
@@ -274,8 +260,17 @@ func GetUserInterests(uid string) []string {
 }
 
 func getGlobalUID(source, username string) string {
-	return findOne[UserCredentialItem](USER_IDS,
-		bson.M{"source": source, "username": username}).UID
+	item, err := findOne[UserCredentialItem](USER_IDS,
+		bson.M{"source": source, "username": username})
+	if err != nil {
+		return ""
+	}
+	return item.UID
+}
+
+func isValidUser(uid string) bool {
+	_, err := findOne[UserCredentialItem](USER_IDS, bson.M{"uid": uid})
+	return err == nil
 }
 
 // data object transformers
@@ -296,6 +291,33 @@ func getMediaContentUpdateObj(item *MediaContentItem) bson.M {
 			ThumbsupCount: item.ThumbsupCount,
 			ThumbsupRatio: item.ThumbsupRatio,
 		}}
+}
+
+func createMediaContentTags(media_content_embeddings []float32) []string {
+	search_comm := mongo.Pipeline{
+		{{
+			"$search", bson.M{
+				"cosmosSearch": bson.M{
+					"vector": media_content_embeddings,
+					"path":   "embeddings",
+					"k":      2,
+				}, // return the top item
+			},
+		}},
+		{{
+			"$project", bson.M{
+				"_id": 1, //"$$ROOT._id"},
+			},
+		}},
+	}
+	if cursor, err := getMongoCollection(INTEREST_CATEGORIES).Aggregate(ctx.Background(), search_comm); err != nil {
+		return nil
+	} else {
+		defer cursor.Close(ctx.Background())
+		var items []CategoryItem
+		cursor.All(ctx.Background(), &items)
+		return utils.Transform[CategoryItem, string](items, func(item *CategoryItem) string { return item.Category })
+	}
 }
 
 // mongo db specific operations
@@ -345,13 +367,10 @@ func updateMany[T any](table string, items []T, filter_func func(item *T) bson.M
 	}
 }
 
-func findOne[T any](table string, filter bson.M) T {
+func findOne[T any](table string, filter bson.M) (T, error) {
 	var item T
-	coll := getMongoCollection(table)
-	if err := coll.FindOne(ctx.Background(), filter).Decode(&item); err != nil {
-		log.Println("couldn't find item", err)
-	}
-	return item
+	err := getMongoCollection(table).FindOne(ctx.Background(), filter).Decode(&item)
+	return item, err
 }
 
 func findMany[T any](table string, pipeline mongo.Pipeline) []T {
@@ -366,27 +385,6 @@ func findMany[T any](table string, pipeline mongo.Pipeline) []T {
 	log.Println("Couldn't retrieve items from", table, "| error:", err)
 	return nil
 }
-
-// func findItems[T any](table string, filter bson.M, fields bson.M) []T {
-// 	var (
-// 		cursor *mongo.Cursor
-// 		err    error
-// 	)
-// 	coll := getMongoCollection(table)
-// 	if fields != nil {
-// 		cursor, err = coll.Find(ctx.Background(), filter, options.Find().SetProjection(fields))
-// 	} else {
-// 		cursor, err = coll.Find(ctx.Background(), filter)
-// 	}
-// 	if err != nil {
-// 		log.Println("couldn't find items in", table, err)
-// 		return nil
-// 	}
-// 	defer cursor.Close(ctx.Background())
-// 	var items []T
-// 	cursor.All(ctx.Background(), &items)
-// 	return items
-// }
 
 // mongo DB and collections clients
 var mongo_client *mongo.Client

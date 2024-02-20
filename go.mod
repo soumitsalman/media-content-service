@@ -3,19 +3,15 @@ module github.com/soumitsalman/media-content-service
 go 1.21.6
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/data/aztables v1.1.0
 	github.com/gin-gonic/gin v1.9.1
-	github.com/olekukonko/tablewriter v0.0.5
 	github.com/otiai10/openaigo v1.6.0
+	github.com/soumitsalman/data-utils v0.0.0-20240213205736-e54ba69f48b0
 	github.com/tiktoken-go/tokenizer v0.1.0
 	go.mongodb.org/mongo-driver v1.13.1
 	golang.org/x/time v0.5.0
 )
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/dlclark/regexp2 v1.9.0 // indirect
@@ -35,8 +31,9 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/montanaflynn/stats v0.7.0 // indirect
+	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/soumitsalman/data-utils v0.0.0-20240213205736-e54ba69f48b0 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

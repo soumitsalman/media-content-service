@@ -1,11 +1,5 @@
 package api
 
-import (
-	"fmt"
-
-	"github.com/Azure/azure-sdk-for-go/sdk/data/aztables"
-)
-
 const (
 	CHANNEL = "channel"
 	POST    = "post"
@@ -13,13 +7,6 @@ const (
 )
 
 type MediaContentItem struct {
-	// unique identifier across media source. every reddit item has one. In reddit this is the name
-	// in azure cosmos DB every record/item has to have an id.
-	// In case of media content the media content itself comes with an unique identifier that we can use
-
-	// TODO: remove this
-	aztables.Entity
-
 	Source string `json:"source,omitempty" bson:"source,omitempty"` // which social media source is this coming from
 	Id     string `json:"cid,omitempty" bson:"cid,omitempty"`       // unique id across Source
 
@@ -32,31 +19,25 @@ type MediaContentItem struct {
 	Url         string `json:"url,omitempty" bson:"url,omitempty"`
 
 	//subreddit category
-	Category string   `json:"category,omitempty" bson:"category,omitempty"`
-	Tags     []string `json:"tags,omitempty" bson:"tags,omitempty"`
-	Author   string   `json:"author,omitempty" bson:"author,omitempty"`   // author of posts or comments. Empty for subreddits
-	Created  float64  `json:"created,omitempty" bson:"created,omitempty"` // date of creation of the post or comment. Empty for subreddits
-
-	// Applies to posts and comments. Doesn't apply to subreddits
-	Score int `json:"score,omitempty" bson:"score,omitempty"`
-	// Number of comments to a post or a comment. Doesn't apply to subreddit
-	Comments int `json:"comments,omitempty" bson:"comments,omitempty"`
-	// Number of subscribers to a channel (subreddit). Doesn't apply to posts or comments
-	Subscribers int `json:"subscribers,omitempty" bson:"subscribers,omitempty"`
-	// number of likes, claps, thumbs-up
-	ThumbsupCount int `json:"likes,omitempty" bson:"likes,omitempty"`
-	// Applies to subreddit posts and comments. Doesn't apply to subreddits
-	ThumbsupRatio float64 `json:"likes_ratio,omitempty" bson:"likes_ratio,omitempty"`
+	Category      string   `json:"category,omitempty" bson:"category,omitempty"`
+	Tags          []string `json:"tags,omitempty" bson:"tags,omitempty"`
+	Author        string   `json:"author,omitempty" bson:"author,omitempty"`           // author of posts or comments. Empty for subreddits
+	Created       float64  `json:"created,omitempty" bson:"created,omitempty"`         // date of creation of the post or comment. Empty for subreddits
+	Score         int      `json:"score,omitempty" bson:"score,omitempty"`             // Applies to posts and comments. Doesn't apply to subreddits
+	Comments      int      `json:"comments,omitempty" bson:"comments,omitempty"`       // Number of comments to a post or a comment. Doesn't apply to subreddit
+	Subscribers   int      `json:"subscribers,omitempty" bson:"subscribers,omitempty"` // Number of subscribers to a channel (subreddit). Doesn't apply to posts or comments
+	ThumbsupCount int      `json:"likes,omitempty" bson:"likes,omitempty"`             // number of likes, claps, thumbs-up
+	ThumbsupRatio float64  `json:"likes_ratio,omitempty" bson:"likes_ratio,omitempty"` // Applies to subreddit posts and comments. Doesn't apply to subreddits
 
 	Digest     string    `json:"digest,omitempty" bson:"digest,omitempty"`
 	Embeddings []float32 `json:"embeddings,omitempty" bson:"embeddings,omitempty"`
 }
 
 // TODO: remove this
-func (item *MediaContentItem) CreateKeys() (string, string) {
-	item.Entity.PartitionKey, item.Entity.RowKey = item.Source, item.Id
-	return item.Entity.PartitionKey, item.Entity.RowKey
-}
+// func (item *MediaContentItem) CreateKeys() (string, string) {
+// 	item.Entity.PartitionKey, item.Entity.RowKey = item.Source, item.Id
+// 	return item.Entity.PartitionKey, item.Entity.RowKey
+// }
 
 func compareMediaContents(a, b *MediaContentItem) bool {
 	return (a.Source == b.Source) && (a.Id == b.Id)
@@ -68,20 +49,18 @@ type CategoryItem struct {
 }
 
 type UserEngagementItem struct {
-	// TODO: remove this field
-	aztables.Entity
-
-	UID       string `json:"uid,omitempty" bson:"uid,omitempty"`
-	Username  string `json:"username,omitempty" bson:"username,omitempty"`
-	Source    string `json:"source,omitempty" bson:"source,omitempty"`
-	ContentId string `json:"cid,omitempty" bson:"cid,omitempty"`
-	Action    string `json:"action,omitempty" bson:"action,omitempty"`
+	UID        string `json:"uid,omitempty" bson:"uid,omitempty"`
+	Username   string `json:"username,omitempty" bson:"username,omitempty"`
+	UserSource string `json:"usersource,omitempty" bson:"usersource,omitempty"`
+	Source     string `json:"source,omitempty" bson:"source,omitempty"`
+	ContentId  string `json:"cid,omitempty" bson:"cid,omitempty"`
+	Action     string `json:"action,omitempty" bson:"action,omitempty"`
 }
 
-func (item *UserEngagementItem) CreateKeys() (string, string) {
-	item.Entity.PartitionKey, item.Entity.RowKey = item.Username, fmt.Sprintf("%s@%s:%s", item.ContentId, item.Source, item.Action)
-	return item.Entity.PartitionKey, item.Entity.RowKey
-}
+// func (item *UserEngagementItem) CreateKeys() (string, string) {
+// 	item.Entity.PartitionKey, item.Entity.RowKey = item.Username, fmt.Sprintf("%s@%s:%s", item.ContentId, item.Source, item.Action)
+// 	return item.Entity.PartitionKey, item.Entity.RowKey
+// }
 
 func compareUserEngagements(a, b *UserEngagementItem) bool {
 	return (a.Username == b.Username) &&
@@ -102,7 +81,7 @@ type UserInterestItem struct {
 type UserCredentialItem struct {
 	UID       string `json:"uid,omitempty" bson:"uid,omitempty"`
 	Source    string `json:"source,omitempty" bson:"source,omitempty"`
-	Username  string `username:"username,omitempty" bson:"username,omitempty"`
+	Username  string `json:"username,omitempty" bson:"username,omitempty"`
 	Password  string `json:"password,omitempty" bson:"password,omitempty"`
 	AuthToken string `json:"auth_token,omitempty" bson:"auth_token,omitempty"`
 }
