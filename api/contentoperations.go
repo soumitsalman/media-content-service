@@ -78,21 +78,26 @@ func NewMediaContents(contents []MediaContentItem) {
 
 func NewEnagements(engagements []UserEngagementItem) {
 	log.Println(len(engagements), "engagements being processed")
+
+	// rectify UID and filter out the ones without valid user
+	engagements = utils.Filter[UserEngagementItem](engagements, func(item *UserEngagementItem) bool {
+		if uid, ok := getGlobalUID(item.UserSource, item.Username); ok {
+			item.UID = uid
+			return true
+		}
+		return false
+	})
+
 	pipeline := mongo.Pipeline{
 		{{
 			"$match", bson.M{
 				"$or": utils.Transform[UserEngagementItem, bson.M](engagements, func(item *UserEngagementItem) bson.M {
 					// if UID is not specified then get compute it
-					if item.UID == "" {
-						item.UID = getGlobalUID(item.UserSource, item.Username)
-					}
 					return bson.M{
-						"uid":        item.UID,
-						"username":   item.Username,
-						"usersource": item.UserSource,
-						"source":     item.Source,
-						"cid":        item.ContentId,
-						"action":     item.Action,
+						"uid":    item.UID,
+						"source": item.Source,
+						"cid":    item.ContentId,
+						"action": item.Action,
 					}
 				}),
 			},
@@ -106,7 +111,6 @@ func NewEnagements(engagements []UserEngagementItem) {
 	new_engs := utils.Filter[UserEngagementItem](engagements, func(item *UserEngagementItem) bool {
 		return !utils.In(*item, existing_engagements, compareUserEngagements)
 	})
-	new_engs = utils.ForEach[UserEngagementItem](new_engs, func(item *UserEngagementItem) { item.UID = getGlobalUID(item.Source, item.Username) })
 	insertMany[UserEngagementItem](USER_ENGAGEMENTS, new_engs)
 }
 
@@ -179,11 +183,6 @@ func GetAllUserCredentials(source string) []UserCredentialItem {
 }
 
 func GetUserContentSuggestions(uid, kind string) []MediaContentItem {
-	// get user interest categories
-	if !isValidUser(uid) {
-		return nil
-	}
-
 	interests := GetUserInterests(uid)
 	engagements := GetUserContentEngagements(uid)
 
@@ -259,18 +258,14 @@ func GetUserInterests(uid string) []string {
 	})
 }
 
-func getGlobalUID(source, username string) string {
-	item, err := findOne[UserCredentialItem](USER_IDS,
-		bson.M{"source": source, "username": username})
-	if err != nil {
-		return ""
-	}
-	return item.UID
-}
-
-func isValidUser(uid string) bool {
+func isValidUID(uid string) bool {
 	_, err := findOne[UserCredentialItem](USER_IDS, bson.M{"uid": uid})
 	return err == nil
+}
+
+func getGlobalUID(source, username string) (string, bool) {
+	item, err := findOne[UserCredentialItem](USER_IDS, bson.M{"source": source, "username": username})
+	return item.UID, (err == nil)
 }
 
 // data object transformers

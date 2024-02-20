@@ -1,0 +1,29 @@
+name: Build and Push Container to Docker Hub
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and Push Container to docker.io
+        uses: GlueOps/github-actions-build-push-containers@v0.3.6
+        with:
+          dockerfile: dockerfile
+          image_name: media-content-service
+          tags: latest
+          registry: "docker.io"
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          

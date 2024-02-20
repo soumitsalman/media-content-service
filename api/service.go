@@ -26,19 +26,23 @@ func newContentsHandler(ctx *gin.Context) {
 }
 
 func getContentsHandler(ctx *gin.Context) {
-	uid, username, usersource, kind := ctx.Query("uid"), ctx.Query("username"), ctx.Query("usersource"), ctx.Query("kind")
-	// log.Println(uid, username, usersource, kind)
+	uid, kind, valid_user := ctx.Query("uid"), ctx.Query("kind"), false
+
 	// if uid is not specified, use username and usersource to get the uid
 	if uid == "" {
-		uid = getGlobalUID(usersource, username)
-	}
-	contents := GetUserContentSuggestions(uid, kind)
-	if contents == nil {
-		log.Println("User does not exist")
-		ctx.JSON(http.StatusNoContent, gin.H{"message": "User not found"})
+		username, usersource := ctx.Query("username"), ctx.Query("usersource")
+		uid, valid_user = getGlobalUID(usersource, username)
 	} else {
+		valid_user = isValidUID(uid)
+	}
+
+	if valid_user {
+		contents := GetUserContentSuggestions(uid, kind)
 		log.Println("Got Contents", len(contents))
 		ctx.JSON(http.StatusOK, contents)
+	} else {
+		log.Println("User does not exist")
+		ctx.JSON(http.StatusNoContent, gin.H{"message": "User not found"})
 	}
 }
 
@@ -81,6 +85,24 @@ func newEngagementHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
 }
 
+// func newInterestsHandler(ctx *gin.Context) {
+// 	var interests []NewInterestRequest
+// 	ctx.BindJSON(&interests)
+
+// 	// TODO: remove this
+// 	// utils.PrintTable[UserEngagementItem](utils.SafeSlice[UserEngagementItem](engagements, 0, 5),
+// 	// 	[]string{"Engagement"},
+// 	// 	func(item *UserEngagementItem) []string {
+// 	// 		return []string{fmt.Sprintf("%s->%s@%s:%s", item.Username, item.ContentId, item.Source, item.Action)}
+// 	// 	})
+// 	log.Println("New Interests", len(interests))
+
+// 	utils.Transform[NewInterestRequest, UserInterestItem]
+
+// 	go NewInterests(interests)
+// 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
+// }
+
 func authenticationHandler(ctx *gin.Context) {
 	// fmt.Println(ctx.GetHeader("X-API-Key"), getInternalAuthToken())
 	if ctx.GetHeader("X-API-Key") == getInternalAuthToken() {
@@ -112,8 +134,8 @@ func NewServer(r rate.Limit, b int) *gin.Engine {
 	// routes
 	auth_group.GET("/contents", getContentsHandler)
 	auth_group.POST("/contents", newContentsHandler)
-	// router.GET("/engagements/", contentsHandler)
 	auth_group.POST("/engagements", newEngagementHandler)
+	// auth_group.POST("/interests", newInterestsHandler)
 	auth_group.GET("/users/:source", getCredsHandler)
 	auth_group.POST("/users", newCredsHandler)
 
