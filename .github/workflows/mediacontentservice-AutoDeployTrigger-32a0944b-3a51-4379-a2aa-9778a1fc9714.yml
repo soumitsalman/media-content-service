@@ -1,0 +1,43 @@
+name: Trigger auto deployment for mediacontentservice
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ main ]
+    paths:
+    - '**'
+    - '.github/workflows/mediacontentservice-AutoDeployTrigger-32a0944b-3a51-4379-a2aa-9778a1fc9714.yml'
+
+  # Allow manual trigger 
+  workflow_dispatch:
+      
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.MEDIACONTENTSERVICE_AZURE_CREDENTIALS }}
+
+      - name: Build and push container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }} 
+          registryUrl: docker.io
+          registryUsername: ${{ secrets.MEDIACONTENTSERVICE_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.MEDIACONTENTSERVICE_REGISTRY_PASSWORD }}
+          containerAppName: mediacontentservice
+          resourceGroup: brandy.io_dev
+          imageToBuild: soumitsr/mediacontentservice:${{ github.sha }}
+          
+            
+
+     
+
