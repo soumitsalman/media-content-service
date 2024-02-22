@@ -19,7 +19,7 @@ func newContentsHandler(ctx *gin.Context) {
 	// 	func(item *MediaContentItem) []string {
 	// 		return []string{item.Kind, item.ChannelName, item.Id, utils.DateToString(item.Created), strconv.Itoa(item.Subscribers), strconv.Itoa(item.Comments), strconv.Itoa(item.ThumbsupCount)}
 	// 	})
-	log.Println("New Contents", len(contents))
+	// log.Println("New Contents", len(contents))
 
 	go NewMediaContents(contents)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
@@ -56,7 +56,7 @@ func getCredsHandler(ctx *gin.Context) {
 	// 	func(item *UserCredentialItem) []string {
 	// 		return []string{item.UID, item.Source, item.Username, item.Password}
 	// 	})
-	log.Println("Got Creds", len(creds))
+	// log.Println("Got Creds", len(creds))
 
 	ctx.JSON(http.StatusOK, creds)
 }
@@ -64,7 +64,7 @@ func getCredsHandler(ctx *gin.Context) {
 func newCredsHandler(ctx *gin.Context) {
 	var cred UserCredentialItem
 	ctx.BindJSON(&cred)
-	log.Println("New Creds")
+	// log.Println("New Creds")
 	go NewUserCredential(cred)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})
 }
@@ -79,7 +79,7 @@ func newEngagementHandler(ctx *gin.Context) {
 	// 	func(item *UserEngagementItem) []string {
 	// 		return []string{fmt.Sprintf("%s->%s@%s:%s", item.Username, item.ContentId, item.Source, item.Action)}
 	// 	})
-	log.Println("New Engagements", len(engagements))
+	// log.Println("New Engagements", len(engagements))
 
 	go NewEnagements(engagements)
 	ctx.JSON(http.StatusOK, gin.H{"message": "process initiated"})

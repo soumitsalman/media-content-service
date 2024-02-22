@@ -13,17 +13,23 @@ import (
 )
 
 func NewMediaContents(contents []MediaContentItem) {
+	log.Println(len(contents), "contents being processed")
+	// pre-emptive error handling for mongo pipeline
+	if len(contents) == 0 {
+		log.Println("Terminating early. No contents provided.")
+		return
+	}
+
 	// get the list of sources and ids into an array
 	content_sources, content_ids := make([]string, 0, len(contents)), make([]string, 0, len(contents))
 	utils.ForEach[MediaContentItem](contents, func(item *MediaContentItem) {
 		content_sources = append(content_sources, item.Source)
 		content_ids = append(content_ids, item.Id)
 	})
-	log.Println(len(content_ids), "contents being processed")
 
 	// check which of these exist
 	// for the ones that exist ONLY update the number fields
-	// techically the search filter logic is flawed but since we can assume that the sources will always be the same in the array in practice it wont result in an error
+	// TODO: techically the search filter logic is flawed but since we can assume that the sources will always be the same in the array in practice it wont result in an error
 	pipeline := mongo.Pipeline{
 		{{
 			"$match", bson.M{
@@ -68,6 +74,9 @@ func NewMediaContents(contents []MediaContentItem) {
 			item.Excerpt = utils.TruncateTextWithEllipsis(item.Text, MAX_EXCEPRT_SIZE)
 			item.Embeddings = CreateEmbeddingsForOne(item.Digest)
 			item.Tags = createMediaContentTags(item.Embeddings)
+			if item.Category != "" {
+				item.Tags = append(item.Tags, item.Category)
+			}
 			item.Digest = "" //clear out the content. No need to present this
 			return true
 		}
@@ -78,15 +87,20 @@ func NewMediaContents(contents []MediaContentItem) {
 
 func NewEnagements(engagements []UserEngagementItem) {
 	log.Println(len(engagements), "engagements being processed")
-
 	// rectify UID and filter out the ones without valid user
 	engagements = utils.Filter[UserEngagementItem](engagements, func(item *UserEngagementItem) bool {
 		if uid, ok := getGlobalUID(item.UserSource, item.Username); ok {
 			item.UID = uid
 			return true
 		}
+		log.Printf("User does NOT exist: %s@%s", item.Username, item.UserSource)
 		return false
 	})
+	// pre-emptive error handling for mongo pipeline
+	if len(engagements) == 0 {
+		log.Println("Terminating Early. No engagements found with valid user names")
+		return
+	}
 
 	pipeline := mongo.Pipeline{
 		{{
